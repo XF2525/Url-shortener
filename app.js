@@ -16,6 +16,20 @@ const blogDatabase = {};
 // In-memory storage for blog analytics
 const blogAnalytics = {};
 
+// Advanced security tracking for admin operations
+const adminSecurity = {
+  sessions: {}, // Track admin sessions with enhanced security
+  ipTracking: {}, // Track operations per IP address
+  operationLogs: [], // Log all admin operations
+  rateLimits: {
+    maxOperationsPerHour: 50, // Maximum automation operations per hour per IP
+    maxBulkOperationsPerDay: 10, // Maximum bulk operations per day per IP
+    cooldownBetweenBulk: 300000, // 5 minutes cooldown between bulk operations
+    progressiveDelayFactor: 1.5 // Increase delays for repeated operations
+  },
+  emergencyStop: false // Emergency stop for all automation
+};
+
 // Simple admin credentials (in production, use proper authentication)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
@@ -119,6 +133,123 @@ function recordBlogView(blogId, req) {
   if (blogAnalytics[blogId].viewHistory.length > 100) {
     blogAnalytics[blogId].viewHistory.shift();
   }
+}
+
+// Advanced security functions
+function getClientIP(req) {
+  return req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+}
+
+function logAdminOperation(operation, ip, details = {}) {
+  const logEntry = {
+    timestamp: new Date(),
+    operation,
+    ip,
+    details,
+    id: Date.now() + Math.random()
+  };
+  
+  adminSecurity.operationLogs.push(logEntry);
+  
+  // Keep only last 1000 operations for memory management
+  if (adminSecurity.operationLogs.length > 1000) {
+    adminSecurity.operationLogs.shift();
+  }
+  
+  return logEntry;
+}
+
+function checkRateLimit(ip, operationType) {
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  const oneDay = 24 * oneHour;
+  
+  if (!adminSecurity.ipTracking[ip]) {
+    adminSecurity.ipTracking[ip] = {
+      operationsLastHour: [],
+      bulkOperationsLastDay: [],
+      lastBulkOperation: 0,
+      warningCount: 0
+    };
+  }
+  
+  const tracking = adminSecurity.ipTracking[ip];
+  
+  // Clean old operations
+  tracking.operationsLastHour = tracking.operationsLastHour.filter(time => now - time < oneHour);
+  tracking.bulkOperationsLastDay = tracking.bulkOperationsLastDay.filter(time => now - time < oneDay);
+  
+  // Check rate limits
+  if (operationType === 'bulk') {
+    // Check cooldown between bulk operations
+    if (now - tracking.lastBulkOperation < adminSecurity.rateLimits.cooldownBetweenBulk) {
+      const remainingTime = Math.ceil((adminSecurity.rateLimits.cooldownBetweenBulk - (now - tracking.lastBulkOperation)) / 1000);
+      return {
+        allowed: false,
+        reason: `Bulk operation cooldown active. Please wait ${remainingTime} seconds.`,
+        remainingTime
+      };
+    }
+    
+    // Check daily bulk limit
+    if (tracking.bulkOperationsLastDay.length >= adminSecurity.rateLimits.maxBulkOperationsPerDay) {
+      return {
+        allowed: false,
+        reason: `Daily bulk operation limit reached (${adminSecurity.rateLimits.maxBulkOperationsPerDay}). Try again tomorrow.`
+      };
+    }
+    
+    tracking.bulkOperationsLastDay.push(now);
+    tracking.lastBulkOperation = now;
+  }
+  
+  // Check hourly operation limit
+  if (tracking.operationsLastHour.length >= adminSecurity.rateLimits.maxOperationsPerHour) {
+    tracking.warningCount++;
+    return {
+      allowed: false,
+      reason: `Hourly operation limit reached (${adminSecurity.rateLimits.maxOperationsPerHour}). Please wait before performing more operations.`
+    };
+  }
+  
+  tracking.operationsLastHour.push(now);
+  
+  return { allowed: true };
+}
+
+function calculateProgressiveDelay(ip, baseDelay) {
+  const tracking = adminSecurity.ipTracking[ip];
+  if (!tracking) return baseDelay;
+  
+  const recentOperations = tracking.operationsLastHour.length;
+  const progressiveFactor = Math.pow(adminSecurity.rateLimits.progressiveDelayFactor, Math.floor(recentOperations / 10));
+  
+  return Math.min(baseDelay * progressiveFactor, baseDelay * 5); // Max 5x the original delay
+}
+
+function requireAdvancedAuth(req, res, next) {
+  // Check emergency stop
+  if (adminSecurity.emergencyStop) {
+    return res.status(503).json({ 
+      error: 'All automation operations are temporarily suspended for security reasons.',
+      code: 'EMERGENCY_STOP'
+    });
+  }
+  
+  // Basic auth check
+  const auth = req.headers.authorization;
+  if (!auth || auth !== `Bearer ${ADMIN_PASSWORD}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  // Enhanced security checks for automation endpoints
+  const ip = getClientIP(req);
+  const path = req.path;
+  
+  // Log the operation attempt
+  logAdminOperation('AUTH_CHECK', ip, { path, userAgent: req.get('User-Agent') });
+  
+  next();
 }
 
 // Middleware to check admin authentication
@@ -995,6 +1126,7 @@ app.get('/admin/dashboard', (req, res) => {
             <div>
                 <a href="/admin/blog" class="refresh-btn" style="background-color: #007bff; margin-right: 10px;">📝 Blog Management</a>
                 <button class="refresh-btn" onclick="showAutomation()" style="background-color: #ff6b6b; margin-right: 10px;">🤖 Automation</button>
+                <button class="refresh-btn" onclick="showSecurityDashboard()" style="background-color: #e74c3c; margin-right: 10px;">🛡️ Security</button>
                 <button class="refresh-btn" onclick="loadUrls()">Refresh</button>
                 <a href="/admin" class="logout-btn" onclick="logout()">Logout</a>
             </div>
@@ -1046,7 +1178,8 @@ app.get('/admin/dashboard', (req, res) => {
                     <h3 style="margin-top: 0; color: #333;">Bulk Automation</h3>
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">Clicks per URL:</label>
-                        <input type="number" id="bulkClickCount" min="1" max="100" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="bulkClickCount" min="1" max="50" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #e74c3c;">⚠️ Reduced to max 50 per URL for enhanced security</small>
                     </div>
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">Delay (ms):</label>
@@ -1067,6 +1200,74 @@ app.get('/admin/dashboard', (req, res) => {
             
             <div style="text-align: center;">
                 <button onclick="hideAutomation()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close Automation Panel</button>
+            </div>
+        </div>
+
+        <!-- Security Dashboard Panel (Hidden by default) -->
+        <div class="container" id="securityDashboard" style="display: none;">
+            <h2>🛡️ Advanced Security Dashboard <span style="background: linear-gradient(45deg, #e74c3c, #c0392b); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">EXPERIMENTAL</span></h2>
+            <p style="color: #666; margin-bottom: 20px;">Monitor and control bulk automation security features with advanced rate limiting and activity tracking.</p>
+            
+            <div id="securityStats" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="font-size: 24px; font-weight: bold; color: #007bff;" id="operationsThisHour">0</div>
+                        <div style="font-size: 12px; color: #666;">Operations This Hour</div>
+                        <div style="font-size: 10px; color: #999;" id="operationsLimit">/ 50 limit</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="font-size: 24px; font-weight: bold; color: #28a745;" id="bulkOpsToday">0</div>
+                        <div style="font-size: 12px; color: #666;">Bulk Ops Today</div>
+                        <div style="font-size: 10px; color: #999;" id="bulkLimit">/ 10 limit</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="font-size: 24px; font-weight: bold; color: #dc3545;" id="bulkCooldown">0s</div>
+                        <div style="font-size: 12px; color: #666;">Bulk Cooldown</div>
+                        <div style="font-size: 10px; color: #999;">Until next bulk</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="font-size: 24px; font-weight: bold; color: #ffc107;" id="warningLevel">LOW</div>
+                        <div style="font-size: 12px; color: #666;">Warning Level</div>
+                        <div style="font-size: 10px; color: #999;">Security status</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; color: #495057;">🚨 Emergency Controls</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Instantly stop all automation operations across the platform</p>
+                    <div style="text-align: center;">
+                        <button id="emergencyStopBtn" onclick="toggleEmergencyStop()" style="background-color: #dc3545; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                            🛑 EMERGENCY STOP
+                        </button>
+                    </div>
+                    <div id="emergencyStatus" style="margin-top: 10px; text-align: center; font-size: 12px;"></div>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; color: #495057;">📊 Live Activity Monitor</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Real-time tracking of automation activities</p>
+                    <div id="activityMonitor" style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px; background: white; padding: 10px; border-radius: 4px; border: 1px solid #e9ecef;">
+                        <div style="color: #666;">Monitoring admin activities...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin-top: 0; color: #856404;">⚡ Enhanced Security Features Active</h4>
+                <ul style="margin-bottom: 0; color: #856404; font-size: 14px;">
+                    <li><strong>Progressive Rate Limiting:</strong> Delays increase with frequent usage</li>
+                    <li><strong>IP-Based Tracking:</strong> Individual limits per admin session</li>
+                    <li><strong>Bulk Operation Cooldowns:</strong> 5-minute delay between large operations</li>
+                    <li><strong>Multi-Factor Confirmation:</strong> Required for operations over 2000 items</li>
+                    <li><strong>Activity Logging:</strong> All operations tracked with timestamps</li>
+                </ul>
+            </div>
+            
+            <div style="text-align: center;">
+                <button onclick="refreshSecurityDashboard()" style="background-color: #17a2b8; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">🔄 Refresh Data</button>
+                <button onclick="hideSecurityDashboard()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close Security Dashboard</button>
             </div>
         </div>
 
@@ -1379,6 +1580,287 @@ app.get('/admin/dashboard', (req, res) => {
                 statusDiv.style.display = 'block';
             }
 
+            // Security dashboard functions
+            function showSecurityDashboard() {
+                document.getElementById('securityDashboard').style.display = 'block';
+                document.getElementById('automationPanel').style.display = 'none';
+                loadSecurityData();
+                document.getElementById('securityDashboard').scrollIntoView({ behavior: 'smooth' });
+            }
+
+            function hideSecurityDashboard() {
+                document.getElementById('securityDashboard').style.display = 'none';
+            }
+
+            async function loadSecurityData() {
+                try {
+                    const token = localStorage.getItem('adminToken');
+                    const response = await fetch('/admin/api/automation/stats', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        updateSecurityStats(data.security);
+                        await loadActivityLogs();
+                    }
+                } catch (error) {
+                    console.error('Error loading security data:', error);
+                }
+            }
+
+            function updateSecurityStats(security) {
+                document.getElementById('operationsThisHour').textContent = security.currentStatus.operationsThisHour;
+                document.getElementById('operationsLimit').textContent = '/ ' + security.rateLimits.maxOperationsPerHour + ' limit';
+                
+                document.getElementById('bulkOpsToday').textContent = security.currentStatus.bulkOperationsToday;
+                document.getElementById('bulkLimit').textContent = '/ ' + security.rateLimits.maxBulkOperationsPerDay + ' limit';
+                
+                document.getElementById('bulkCooldown').textContent = security.currentStatus.bulkCooldownSeconds + 's';
+                document.getElementById('warningLevel').textContent = security.currentStatus.warningLevel;
+                
+                // Update warning level color
+                const warningEl = document.getElementById('warningLevel');
+                const level = security.currentStatus.warningLevel;
+                warningEl.style.color = level === 'HIGH' ? '#dc3545' : level === 'MEDIUM' ? '#ffc107' : '#28a745';
+                
+                // Update emergency stop button
+                const emergencyBtn = document.getElementById('emergencyStopBtn');
+                const emergencyStatus = document.getElementById('emergencyStatus');
+                if (security.emergencyStop) {
+                    emergencyBtn.textContent = '✅ RESUME OPERATIONS';
+                    emergencyBtn.style.backgroundColor = '#28a745';
+                    emergencyStatus.textContent = '🚫 All automation suspended';
+                    emergencyStatus.style.color = '#dc3545';
+                } else {
+                    emergencyBtn.textContent = '🛑 EMERGENCY STOP';
+                    emergencyBtn.style.backgroundColor = '#dc3545';
+                    emergencyStatus.textContent = '✅ Operations normal';
+                    emergencyStatus.style.color = '#28a745';
+                }
+            }
+
+            async function loadActivityLogs() {
+                try {
+                    const token = localStorage.getItem('adminToken');
+                    const response = await fetch('/admin/api/security/dashboard', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        updateActivityMonitor(data.recentActivity);
+                    }
+                } catch (error) {
+                    console.error('Error loading activity logs:', error);
+                }
+            }
+
+            function updateActivityMonitor(activities) {
+                const monitor = document.getElementById('activityMonitor');
+                if (!activities || activities.length === 0) {
+                    monitor.innerHTML = '<div style="color: #666;">No recent activities</div>';
+                    return;
+                }
+
+                const logEntries = activities.slice(0, 10).map(activity => {
+                    const time = new Date(activity.timestamp).toLocaleTimeString();
+                    const operation = activity.operation.replace(/_/g, ' ');
+                    return '<div style="margin: 2px 0; color: ' + getOperationColor(activity.operation) + '">[' + time + '] ' + operation + '</div>';
+                }).join('');
+                
+                monitor.innerHTML = logEntries;
+            }
+
+            function getOperationColor(operation) {
+                if (operation.includes('BULK')) return '#dc3545';
+                if (operation.includes('RATE_LIMITED')) return '#ffc107';
+                if (operation.includes('EMERGENCY')) return '#e74c3c';
+                return '#28a745';
+            }
+
+            async function toggleEmergencyStop() {
+                try {
+                    const token = localStorage.getItem('adminToken');
+                    const currentBtn = document.getElementById('emergencyStopBtn');
+                    const isCurrentlyStopped = currentBtn.textContent.includes('RESUME');
+                    
+                    const action = isCurrentlyStopped ? 'disable' : 'enable';
+                    
+                    if (!isCurrentlyStopped) {
+                        const confirm = window.confirm('Are you sure you want to EMERGENCY STOP all automation operations? This will immediately suspend all bulk operations across the platform.');
+                        if (!confirm) return;
+                    }
+
+                    const response = await fetch('/admin/api/security/emergency-stop', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ action })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        alert(data.message);
+                        loadSecurityData(); // Refresh the dashboard
+                    } else {
+                        const error = await response.json();
+                        alert('Error: ' + error.error);
+                    }
+                } catch (error) {
+                    alert('Error toggling emergency stop: ' + error.message);
+                }
+            }
+
+            function refreshSecurityDashboard() {
+                loadSecurityData();
+            }
+
+            // Enhanced automation functions with security feedback
+            async function generateClicks() {
+                const shortCode = document.getElementById('automationShortCode').value;
+                const clickCount = document.getElementById('clickCount').value;
+                const delay = document.getElementById('delay').value;
+
+                if (!shortCode) {
+                    alert('Please select a URL');
+                    return;
+                }
+
+                try {
+                    const token = localStorage.getItem('adminToken');
+                    const response = await fetch('/admin/api/automation/generate-clicks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            shortCode: shortCode,
+                            clickCount: parseInt(clickCount),
+                            delay: parseInt(delay)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        let message = '✅ Started generating ' + clickCount + ' clicks for ' + shortCode + '.';
+                        if (data.progressiveDelay) {
+                            message += ' 🛡️ Enhanced security: Using ' + data.delay + 'ms delay (was ' + delay + 'ms).';
+                        }
+                        showAutomationStatus(message);
+                        
+                        // Refresh data after a delay to show updated analytics
+                        setTimeout(() => {
+                            loadUrls();
+                            showAutomationStatus(message + ' ✅ Completed!');
+                        }, parseInt(delay) * parseInt(clickCount) + 2000);
+                    } else if (response.status === 429) {
+                        const errorData = await response.json();
+                        alert('🛡️ Security Limit: ' + errorData.error);
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error generating clicks: ' + error.message);
+                }
+            }
+
+            // Enhanced bulk clicks with security features
+            async function generateBulkClicks() {
+                const urlCount = Object.keys(urlDatabase || {}).length;
+                if (urlCount === 0) {
+                    alert('No URLs available for bulk automation');
+                    return;
+                }
+
+                const clicksPerUrl = document.getElementById('bulkClickCount').value;
+                const delay = document.getElementById('bulkDelay').value;
+                const totalEstimated = urlCount * clicksPerUrl;
+
+                // Enhanced confirmation for large operations
+                if (totalEstimated > 1000) {
+                    const confirm1 = window.confirm('⚠️ Large Operation Warning\\n\\nThis will generate ' + totalEstimated + ' clicks across ' + urlCount + ' URLs.\\n\\nThis may trigger enhanced security measures including:\\n- Increased delays\\n- Rate limiting\\n- Cooldown periods\\n\\nContinue?');
+                    if (!confirm1) return;
+                    
+                    if (totalEstimated > 2000) {
+                        const confirm2 = window.confirm('🚨 VERY LARGE OPERATION\\n\\nGenerating ' + totalEstimated + ' clicks requires additional confirmation.\\n\\nThis operation may:\\n- Take several minutes to complete\\n- Trigger security rate limits\\n- Require a confirmation token\\n\\nProceed with extreme caution?');
+                        if (!confirm2) return;
+                    }
+                }
+
+                try {
+                    const token = localStorage.getItem('adminToken');
+                    let headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    };
+
+                    // For very large operations, we might need a confirmation token
+                    let attemptCount = 0;
+                    let confirmationToken = null;
+
+                    const attemptBulkOperation = async () => {
+                        const requestHeaders = confirmationToken ? 
+                            { ...headers, 'X-Confirmation-Token': confirmationToken } : headers;
+
+                        const response = await fetch('/admin/api/automation/generate-bulk-clicks', {
+                            method: 'POST',
+                            headers: requestHeaders,
+                            body: JSON.stringify({
+                                clicksPerUrl: parseInt(clicksPerUrl),
+                                delay: parseInt(delay)
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            let message = '⚡ Started bulk generation: ' + clicksPerUrl + ' clicks per URL for ' + urlCount + ' URLs. Total: ' + data.estimatedTotal + ' clicks.';
+                            if (data.progressiveDelay) {
+                                message += ' 🛡️ Enhanced security active.';
+                            }
+                            message += ' ETA: ' + data.estimatedDuration;
+                            showAutomationStatus(message);
+                            
+                            // Refresh data after estimated completion time
+                            const estimatedTime = urlCount * parseInt(clicksPerUrl) * parseInt(delay) + 5000;
+                            setTimeout(() => {
+                                loadUrls();
+                                showAutomationStatus('✅ Bulk automation completed! Generated approximately ' + data.estimatedTotal + ' clicks. Analytics updated.');
+                            }, estimatedTime);
+                        } else if (response.status === 400) {
+                            const errorData = await response.json();
+                            if (errorData.code === 'CONFIRMATION_REQUIRED') {
+                                confirmationToken = errorData.confirmationToken;
+                                const userConfirm = window.confirm('🔐 Multi-Factor Confirmation Required\\n\\n' + errorData.warningMessage + '\\n\\nConfirmation Code: ' + confirmationToken + '\\n\\nProceed with this large operation?');
+                                if (userConfirm) {
+                                    return attemptBulkOperation(); // Retry with token
+                                }
+                            } else {
+                                alert('Error: ' + errorData.error);
+                            }
+                        } else if (response.status === 429) {
+                            const errorData = await response.json();
+                            alert('🛡️ Security Limit: ' + errorData.error + (errorData.suggestedAction ? '\\n\\n' + errorData.suggestedAction : ''));
+                        } else if (response.status === 401) {
+                            logout();
+                        } else {
+                            const errorData = await response.json();
+                            alert('Error: ' + errorData.error);
+                        }
+                    };
+
+                    await attemptBulkOperation();
+                } catch (error) {
+                    alert('Error generating bulk clicks: ' + error.message);
+                }
+            }
+
             // Load URLs when page loads
             window.onload = loadUrls;
         </script>
@@ -1481,15 +1963,42 @@ function simulateBlogView(blogId, userAgent = 'BlogViewBot/1.0', ip = '127.0.0.1
 }
 
 // Admin API endpoint for automated click generation
-app.post('/admin/api/automation/generate-clicks', requireAuth, (req, res) => {
+app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res) => {
   const { shortCode, clickCount = 1, userAgents = [], delay = 100 } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check
+  const rateLimitCheck = checkRateLimit(ip, 'single');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('RATE_LIMITED', ip, { operation: 'generate-clicks', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'RATE_LIMITED',
+      retryAfter: rateLimitCheck.remainingTime || 3600
+    });
+  }
   
   if (!shortCode || !urlDatabase[shortCode]) {
     return res.status(400).json({ error: 'Valid short code is required' });
   }
   
   const count = Math.min(Math.max(parseInt(clickCount), 1), 1000); // Limit to 1000 clicks max
-  const delayMs = Math.max(parseInt(delay), 10); // Minimum 10ms delay
+  const baseDelay = Math.max(parseInt(delay), 10); // Minimum 10ms delay
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  // Enhanced validation for large operations
+  if (count > 500) {
+    const tracking = adminSecurity.ipTracking[ip];
+    if (tracking && tracking.operationsLastHour.length > 20) {
+      return res.status(429).json({ 
+        error: 'Large operations require fewer recent activities. Please wait before performing operations over 500 clicks.',
+        code: 'LARGE_OPERATION_RESTRICTED'
+      });
+    }
+  }
+  
+  // Log the operation
+  logAdminOperation('SINGLE_AUTOMATION', ip, { shortCode, clickCount: count, delay: actualDelay });
   
   const defaultUserAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1519,27 +2028,83 @@ app.post('/admin/api/automation/generate-clicks', requireAuth, (req, res) => {
     if (generated >= count) {
       clearInterval(generateInterval);
     }
-  }, delayMs);
+  }, actualDelay);
   
   res.json({ 
     message: `Started generating ${count} clicks for ${shortCode}`,
     shortCode,
     clickCount: count,
-    delay: delayMs
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
+    progressiveDelay: actualDelay > baseDelay
   });
 });
 
 // Admin API endpoint for bulk click generation on all URLs
-app.post('/admin/api/automation/generate-bulk-clicks', requireAuth, (req, res) => {
+app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req, res) => {
   const { clicksPerUrl = 5, delay = 100 } = req.body;
+  const ip = getClientIP(req);
+  
+  // Enhanced rate limiting for bulk operations
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('BULK_RATE_LIMITED', ip, { operation: 'generate-bulk-clicks', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED',
+      retryAfter: rateLimitCheck.remainingTime || 86400
+    });
+  }
   
   const urlCodes = Object.keys(urlDatabase);
   if (urlCodes.length === 0) {
     return res.status(400).json({ error: 'No URLs available for automation' });
   }
   
-  const count = Math.min(Math.max(parseInt(clicksPerUrl), 1), 100); // Limit to 100 clicks per URL
-  const delayMs = Math.max(parseInt(delay), 50); // Minimum 50ms delay for bulk
+  const count = Math.min(Math.max(parseInt(clicksPerUrl), 1), 50); // Reduced to 50 clicks per URL for security
+  const baseDelay = Math.max(parseInt(delay), 100); // Minimum 100ms delay for bulk
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  const totalEstimatedClicks = urlCodes.length * count;
+  
+  // Enhanced security for large bulk operations
+  if (totalEstimatedClicks > 1000) {
+    const tracking = adminSecurity.ipTracking[ip];
+    const recentBulkOps = tracking ? tracking.bulkOperationsLastDay.length : 0;
+    
+    if (recentBulkOps >= 3) {
+      return res.status(429).json({ 
+        error: 'Large bulk operations are limited to 3 per day for security reasons.',
+        code: 'LARGE_BULK_LIMIT_EXCEEDED',
+        suggestedAction: 'Consider smaller batch sizes or contact administrator.'
+      });
+    }
+  }
+  
+  // Multi-factor confirmation requirement for very large operations
+  if (totalEstimatedClicks > 2000) {
+    const confirmationToken = req.headers['x-confirmation-token'];
+    const expectedToken = 'BULK_CONFIRM_' + Date.now().toString().slice(-6);
+    
+    if (!confirmationToken || confirmationToken !== expectedToken) {
+      return res.status(400).json({ 
+        error: 'Large bulk operations require additional confirmation.',
+        code: 'CONFIRMATION_REQUIRED',
+        confirmationToken: expectedToken,
+        estimatedClicks: totalEstimatedClicks,
+        warningMessage: `This operation will generate ${totalEstimatedClicks} clicks across ${urlCodes.length} URLs. Please confirm by including the token in X-Confirmation-Token header.`
+      });
+    }
+  }
+  
+  // Log the bulk operation
+  logAdminOperation('BULK_AUTOMATION', ip, { 
+    urlCount: urlCodes.length, 
+    clicksPerUrl: count, 
+    totalClicks: totalEstimatedClicks,
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD'
+  });
   
   const defaultUserAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1556,6 +2121,7 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAuth, (req, res) =
   const generateInterval = setInterval(() => {
     if (currentUrlIndex >= urlCodes.length) {
       clearInterval(generateInterval);
+      logAdminOperation('BULK_COMPLETED', ip, { totalGenerated, duration: Date.now() });
       return;
     }
     
@@ -1572,30 +2138,136 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAuth, (req, res) =
       currentUrlIndex++;
       clicksForCurrentUrl = 0;
     }
-  }, delayMs);
+  }, actualDelay);
   
   res.json({ 
     message: `Started bulk generation: ${count} clicks per URL for ${urlCodes.length} URLs`,
     totalUrls: urlCodes.length,
     clicksPerUrl: count,
-    estimatedTotal: urlCodes.length * count,
-    delay: delayMs
+    estimatedTotal: totalEstimatedClicks,
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
+    progressiveDelay: actualDelay > baseDelay,
+    operationId: Date.now(),
+    estimatedDuration: Math.ceil((totalEstimatedClicks * actualDelay) / 1000) + ' seconds'
   });
 });
 
 // Admin API endpoint to get automation statistics
-app.get('/admin/api/automation/stats', requireAuth, (req, res) => {
+app.get('/admin/api/automation/stats', requireAdvancedAuth, (req, res) => {
+  const ip = getClientIP(req);
   const totalUrls = Object.keys(urlDatabase).length;
   const totalClicks = Object.values(urlAnalytics).reduce((sum, analytics) => sum + analytics.clicks, 0);
   const urlsWithClicks = Object.values(urlAnalytics).filter(analytics => analytics.clicks > 0).length;
+  
+  const tracking = adminSecurity.ipTracking[ip] || { 
+    operationsLastHour: [], 
+    bulkOperationsLastDay: [], 
+    lastBulkOperation: 0,
+    warningCount: 0 
+  };
+  
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  const oneDay = 24 * oneHour;
+  
+  // Clean old operations for accurate counts
+  const recentOperations = tracking.operationsLastHour.filter(time => now - time < oneHour).length;
+  const recentBulkOps = tracking.bulkOperationsLastDay.filter(time => now - time < oneDay).length;
+  const nextBulkAllowed = tracking.lastBulkOperation + adminSecurity.rateLimits.cooldownBetweenBulk;
+  const bulkCooldownRemaining = Math.max(0, Math.ceil((nextBulkAllowed - now) / 1000));
   
   res.json({
     totalUrls,
     totalClicks,
     urlsWithClicks,
     averageClicksPerUrl: totalUrls > 0 ? Math.round(totalClicks / totalUrls * 10) / 10 : 0,
-    urlsWithoutClicks: totalUrls - urlsWithClicks
+    urlsWithoutClicks: totalUrls - urlsWithClicks,
+    security: {
+      emergencyStop: adminSecurity.emergencyStop,
+      rateLimits: adminSecurity.rateLimits,
+      currentStatus: {
+        operationsThisHour: recentOperations,
+        bulkOperationsToday: recentBulkOps,
+        bulkCooldownSeconds: bulkCooldownRemaining,
+        warningLevel: tracking.warningCount > 5 ? 'HIGH' : tracking.warningCount > 2 ? 'MEDIUM' : 'LOW'
+      },
+      remainingLimits: {
+        operationsThisHour: Math.max(0, adminSecurity.rateLimits.maxOperationsPerHour - recentOperations),
+        bulkOperationsToday: Math.max(0, adminSecurity.rateLimits.maxBulkOperationsPerDay - recentBulkOps)
+      }
+    }
   });
+});
+
+// New security dashboard endpoint
+app.get('/admin/api/security/dashboard', requireAdvancedAuth, (req, res) => {
+  const ip = getClientIP(req);
+  
+  // Recent operation logs (last 50)
+  const recentLogs = adminSecurity.operationLogs.slice(-50).reverse();
+  
+  // Security statistics
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+  const oneDay = 24 * oneHour;
+  
+  const allIPs = Object.keys(adminSecurity.ipTracking);
+  const activeIPs = allIPs.filter(ip => {
+    const tracking = adminSecurity.ipTracking[ip];
+    return tracking.operationsLastHour.some(time => now - time < oneHour);
+  });
+  
+  const totalOperationsToday = Object.values(adminSecurity.ipTracking).reduce((sum, tracking) => {
+    return sum + tracking.operationsLastHour.filter(time => now - time < oneDay).length;
+  }, 0);
+  
+  const totalBulkOpsToday = Object.values(adminSecurity.ipTracking).reduce((sum, tracking) => {
+    return sum + tracking.bulkOperationsLastDay.filter(time => now - time < oneDay).length;
+  }, 0);
+  
+  res.json({
+    securityStatus: {
+      emergencyStop: adminSecurity.emergencyStop,
+      activeIPs: activeIPs.length,
+      totalOperationsToday,
+      totalBulkOpsToday,
+      totalLogEntries: adminSecurity.operationLogs.length
+    },
+    rateLimits: adminSecurity.rateLimits,
+    recentActivity: recentLogs,
+    ipStatistics: allIPs.map(ipAddr => {
+      const tracking = adminSecurity.ipTracking[ipAddr];
+      return {
+        ip: ipAddr,
+        operationsLastHour: tracking.operationsLastHour.filter(time => now - time < oneHour).length,
+        bulkOperationsLastDay: tracking.bulkOperationsLastDay.filter(time => now - time < oneDay).length,
+        lastActivity: tracking.operationsLastHour.length > 0 ? 
+          new Date(Math.max(...tracking.operationsLastHour)) : null,
+        warningCount: tracking.warningCount,
+        status: tracking.warningCount > 5 ? 'HIGH_RISK' : 
+                tracking.warningCount > 2 ? 'MODERATE_RISK' : 'NORMAL'
+      };
+    }).sort((a, b) => b.operationsLastHour - a.operationsLastHour)
+  });
+});
+
+// Emergency security controls
+app.post('/admin/api/security/emergency-stop', requireAdvancedAuth, (req, res) => {
+  const ip = getClientIP(req);
+  const { action } = req.body; // 'enable' or 'disable'
+  
+  if (action === 'enable') {
+    adminSecurity.emergencyStop = true;
+    logAdminOperation('EMERGENCY_STOP_ENABLED', ip, { reason: 'Manual activation' });
+    res.json({ message: 'Emergency stop activated. All automation operations are now suspended.' });
+  } else if (action === 'disable') {
+    adminSecurity.emergencyStop = false;
+    logAdminOperation('EMERGENCY_STOP_DISABLED', ip, { reason: 'Manual deactivation' });
+    res.json({ message: 'Emergency stop deactivated. Automation operations are now allowed.' });
+  } else {
+    res.status(400).json({ error: 'Invalid action. Use "enable" or "disable".' });
+  }
 });
 
 // ========================================
@@ -1603,15 +2275,42 @@ app.get('/admin/api/automation/stats', requireAuth, (req, res) => {
 // ========================================
 
 // Admin API endpoint for automated blog view generation
-app.post('/admin/api/blog/automation/generate-views', requireAuth, (req, res) => {
+app.post('/admin/api/blog/automation/generate-views', requireAdvancedAuth, (req, res) => {
   const { blogId, viewCount = 1, userAgents = [], delay = 100 } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check
+  const rateLimitCheck = checkRateLimit(ip, 'single');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('RATE_LIMITED', ip, { operation: 'generate-blog-views', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'RATE_LIMITED',
+      retryAfter: rateLimitCheck.remainingTime || 3600
+    });
+  }
   
   if (!blogId || !blogDatabase[blogId]) {
     return res.status(400).json({ error: 'Valid blog post ID is required' });
   }
   
   const count = Math.min(Math.max(parseInt(viewCount), 1), 1000); // Limit to 1000 views max
-  const delayMs = Math.max(parseInt(delay), 10); // Minimum 10ms delay
+  const baseDelay = Math.max(parseInt(delay), 10); // Minimum 10ms delay
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  // Enhanced validation for large operations
+  if (count > 500) {
+    const tracking = adminSecurity.ipTracking[ip];
+    if (tracking && tracking.operationsLastHour.length > 20) {
+      return res.status(429).json({ 
+        error: 'Large operations require fewer recent activities. Please wait before performing operations over 500 views.',
+        code: 'LARGE_OPERATION_RESTRICTED'
+      });
+    }
+  }
+  
+  // Log the operation
+  logAdminOperation('SINGLE_BLOG_AUTOMATION', ip, { blogId, viewCount: count, delay: actualDelay });
   
   const defaultUserAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1641,27 +2340,83 @@ app.post('/admin/api/blog/automation/generate-views', requireAuth, (req, res) =>
     if (generated >= count) {
       clearInterval(generateInterval);
     }
-  }, delayMs);
+  }, actualDelay);
   
   res.json({ 
     message: `Started generating ${count} views for blog post`,
     blogId,
     viewCount: count,
-    delay: delayMs
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
+    progressiveDelay: actualDelay > baseDelay
   });
 });
 
 // Admin API endpoint for bulk blog view generation on all posts
-app.post('/admin/api/blog/automation/generate-bulk-views', requireAuth, (req, res) => {
+app.post('/admin/api/blog/automation/generate-bulk-views', requireAdvancedAuth, (req, res) => {
   const { viewsPerPost = 5, delay = 100 } = req.body;
+  const ip = getClientIP(req);
+  
+  // Enhanced rate limiting for bulk operations
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('BULK_RATE_LIMITED', ip, { operation: 'generate-bulk-blog-views', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED',
+      retryAfter: rateLimitCheck.remainingTime || 86400
+    });
+  }
   
   const publishedPosts = Object.values(blogDatabase).filter(post => post.published);
   if (publishedPosts.length === 0) {
     return res.status(400).json({ error: 'No published blog posts available for automation' });
   }
   
-  const count = Math.min(Math.max(parseInt(viewsPerPost), 1), 100); // Limit to 100 views per post
-  const delayMs = Math.max(parseInt(delay), 50); // Minimum 50ms delay for bulk
+  const count = Math.min(Math.max(parseInt(viewsPerPost), 1), 30); // Reduced to 30 views per post for security
+  const baseDelay = Math.max(parseInt(delay), 100); // Minimum 100ms delay for bulk
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  const totalEstimatedViews = publishedPosts.length * count;
+  
+  // Enhanced security for large bulk operations
+  if (totalEstimatedViews > 500) {
+    const tracking = adminSecurity.ipTracking[ip];
+    const recentBulkOps = tracking ? tracking.bulkOperationsLastDay.length : 0;
+    
+    if (recentBulkOps >= 3) {
+      return res.status(429).json({ 
+        error: 'Large bulk blog operations are limited to 3 per day for security reasons.',
+        code: 'LARGE_BULK_LIMIT_EXCEEDED',
+        suggestedAction: 'Consider smaller batch sizes or contact administrator.'
+      });
+    }
+  }
+  
+  // Multi-factor confirmation requirement for very large operations
+  if (totalEstimatedViews > 1000) {
+    const confirmationToken = req.headers['x-confirmation-token'];
+    const expectedToken = 'BLOG_BULK_CONFIRM_' + Date.now().toString().slice(-6);
+    
+    if (!confirmationToken || confirmationToken !== expectedToken) {
+      return res.status(400).json({ 
+        error: 'Large bulk blog operations require additional confirmation.',
+        code: 'CONFIRMATION_REQUIRED',
+        confirmationToken: expectedToken,
+        estimatedViews: totalEstimatedViews,
+        warningMessage: `This operation will generate ${totalEstimatedViews} views across ${publishedPosts.length} blog posts. Please confirm by including the token in X-Confirmation-Token header.`
+      });
+    }
+  }
+  
+  // Log the bulk operation
+  logAdminOperation('BULK_BLOG_AUTOMATION', ip, { 
+    postCount: publishedPosts.length, 
+    viewsPerPost: count, 
+    totalViews: totalEstimatedViews,
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD'
+  });
   
   const defaultUserAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1678,6 +2433,7 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAuth, (req, re
   const generateInterval = setInterval(() => {
     if (currentPostIndex >= publishedPosts.length) {
       clearInterval(generateInterval);
+      logAdminOperation('BULK_BLOG_COMPLETED', ip, { totalGenerated, duration: Date.now() });
       return;
     }
     
@@ -1694,14 +2450,18 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAuth, (req, re
       currentPostIndex++;
       viewsForCurrentPost = 0;
     }
-  }, delayMs);
+  }, actualDelay);
   
   res.json({ 
     message: `Started bulk blog view generation: ${count} views per post for ${publishedPosts.length} published posts`,
     totalPosts: publishedPosts.length,
     viewsPerPost: count,
-    estimatedTotal: publishedPosts.length * count,
-    delay: delayMs
+    estimatedTotal: totalEstimatedViews,
+    delay: actualDelay,
+    securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
+    progressiveDelay: actualDelay > baseDelay,
+    operationId: Date.now(),
+    estimatedDuration: Math.ceil((totalEstimatedViews * actualDelay) / 1000) + ' seconds'
   });
 });
 
@@ -2494,7 +3254,8 @@ app.get('/admin/blog', (req, res) => {
                 <h3>Bulk Generation</h3>
                 <div class="form-group">
                     <label>Views per Post:</label>
-                    <input type="number" id="bulkViews" value="5" min="1" max="100">
+                    <input type="number" id="bulkViews" value="5" min="1" max="30">
+                    <small style="color: #e74c3c; display: block; margin-top: 5px;">⚠️ Max 30 per post for security</small>
                 </div>
                 <button class="btn btn-primary" onclick="generateBulkViews()">Generate for All Posts</button>
             </div>
