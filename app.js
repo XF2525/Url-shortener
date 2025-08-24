@@ -10,6 +10,12 @@ const urlDatabase = {};
 // In-memory storage for URL analytics
 const urlAnalytics = {};
 
+// In-memory storage for blog posts
+const blogDatabase = {};
+
+// In-memory storage for blog analytics
+const blogAnalytics = {};
+
 // Simple admin credentials (in production, use proper authentication)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
@@ -66,6 +72,52 @@ function recordClick(shortCode, req) {
   
   if (urlAnalytics[shortCode].clickHistory.length > 100) {
     urlAnalytics[shortCode].clickHistory.shift();
+  }
+}
+
+// Function to generate blog post ID
+function generateBlogId() {
+  return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Function to generate blog slug from title
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim('-');
+}
+
+// Function to record blog view analytics
+function recordBlogView(blogId, req) {
+  if (!blogAnalytics[blogId]) {
+    blogAnalytics[blogId] = {
+      views: 0,
+      firstView: null,
+      lastView: null,
+      viewHistory: []
+    };
+  }
+  
+  const timestamp = new Date();
+  blogAnalytics[blogId].views++;
+  blogAnalytics[blogId].lastView = timestamp;
+  
+  if (!blogAnalytics[blogId].firstView) {
+    blogAnalytics[blogId].firstView = timestamp;
+  }
+  
+  // Store view history (limit to last 100 views for memory management)
+  blogAnalytics[blogId].viewHistory.push({
+    timestamp,
+    userAgent: req.get('User-Agent') || 'Unknown',
+    ip: req.ip || req.connection.remoteAddress || 'Unknown'
+  });
+  
+  if (blogAnalytics[blogId].viewHistory.length > 100) {
+    blogAnalytics[blogId].viewHistory.shift();
   }
 }
 
@@ -233,6 +285,12 @@ app.get('/', (req, res) => {
     <body>
         <div class="container">
             <h1>🔗 URL Shortener<span class="experimental-badge">NEW FEATURES!</span></h1>
+            
+            <!-- Blog Link -->
+            <div style="text-align: center; margin-bottom: 20px;">
+                <a href="/blog" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border-radius: 25px; text-decoration: none; font-weight: bold; display: inline-block;">📝 Visit Our Blog</a>
+            </div>
+            
             <form id="urlForm">
                 <div class="form-group">
                     <label for="originalUrl">Enter URL to shorten:</label>
@@ -935,6 +993,7 @@ app.get('/admin/dashboard', (req, res) => {
         <div class="header">
             <h1>🛠️ Admin Dashboard</h1>
             <div>
+                <a href="/admin/blog" class="refresh-btn" style="background-color: #007bff; margin-right: 10px;">📝 Blog Management</a>
                 <button class="refresh-btn" onclick="loadUrls()">Refresh</button>
                 <a href="/admin" class="logout-btn" onclick="logout()">Logout</a>
             </div>
@@ -1188,6 +1247,1259 @@ app.get('/admin/api/analytics/:shortCode', requireAuth, (req, res) => {
     originalUrl: urlDatabase[shortCode],
     analytics
   });
+});
+
+// ========================================
+// BLOG ROUTES AND FUNCTIONALITY
+// ========================================
+
+// Public blog listing page
+app.get('/blog', (req, res) => {
+  const publishedPosts = Object.values(blogDatabase).filter(post => post.published);
+  publishedPosts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Blog - URL Shortener</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+                line-height: 1.6;
+            }
+            .header {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 30px;
+                text-align: center;
+            }
+            .header h1 {
+                margin: 0;
+                color: #333;
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .experimental-badge {
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: bold;
+                display: inline-block;
+                margin-left: 10px;
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.7; }
+                100% { opacity: 1; }
+            }
+            .nav-links {
+                margin-top: 20px;
+            }
+            .nav-links a {
+                color: #007bff;
+                text-decoration: none;
+                margin: 0 15px;
+                font-weight: bold;
+            }
+            .nav-links a:hover {
+                text-decoration: underline;
+            }
+            .blog-post {
+                background-color: white;
+                padding: 25px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 25px;
+                transition: transform 0.2s;
+            }
+            .blog-post:hover {
+                transform: translateY(-2px);
+            }
+            .blog-post h2 {
+                margin-top: 0;
+                color: #333;
+            }
+            .blog-post h2 a {
+                color: #333;
+                text-decoration: none;
+            }
+            .blog-post h2 a:hover {
+                color: #007bff;
+            }
+            .blog-meta {
+                color: #666;
+                font-size: 14px;
+                margin-bottom: 15px;
+            }
+            .blog-excerpt {
+                color: #555;
+                margin-bottom: 15px;
+            }
+            .read-more {
+                background-color: #007bff;
+                color: white;
+                padding: 8px 16px;
+                border-radius: 5px;
+                text-decoration: none;
+                font-size: 14px;
+                display: inline-block;
+            }
+            .read-more:hover {
+                background-color: #0056b3;
+            }
+            .no-posts {
+                text-align: center;
+                color: #666;
+                background-color: white;
+                padding: 40px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .blog-stats {
+                background-color: #e7f3ff;
+                padding: 10px 15px;
+                border-radius: 5px;
+                margin-top: 10px;
+                font-size: 12px;
+                color: #666;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>📝 Blog<span class="experimental-badge">EXPERIMENTAL</span></h1>
+            <p>Welcome to our experimental blog featuring insights, tips, and stories!</p>
+            <div class="nav-links">
+                <a href="/">🔗 URL Shortener</a>
+                <a href="/admin">🛠️ Admin Panel</a>
+            </div>
+        </div>
+
+        ${publishedPosts.length === 0 ? `
+            <div class="no-posts">
+                <h2>No blog posts yet!</h2>
+                <p>Check back soon for interesting content.</p>
+            </div>
+        ` : publishedPosts.map(post => {
+            const analytics = blogAnalytics[post.id] || { views: 0 };
+            const excerpt = post.content.replace(/<[^>]*>/g, '').substring(0, 200) + '...';
+            return `
+                <article class="blog-post">
+                    <h2><a href="/blog/${post.slug}">${post.title}</a></h2>
+                    <div class="blog-meta">
+                        By ${post.author} • ${new Date(post.createdAt).toLocaleDateString()} • ${analytics.views} views
+                    </div>
+                    <div class="blog-excerpt">${excerpt}</div>
+                    <a href="/blog/${post.slug}" class="read-more">Read More →</a>
+                    <div class="blog-stats">
+                        📊 ${analytics.views} total views • 🔗 <a href="/blog/preview/${post.slug}" target="_blank">Preview with Analytics</a>
+                    </div>
+                </article>
+            `;
+        }).join('')}
+    </body>
+    </html>
+  `);
+});
+
+// Individual blog post page
+app.get('/blog/:slug', (req, res) => {
+  const { slug } = req.params;
+  const post = Object.values(blogDatabase).find(p => p.slug === slug && p.published);
+  
+  if (!post) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Post Not Found - Blog</title>
+          <style>
+              body {
+                  font-family: Arial, sans-serif;
+                  max-width: 600px;
+                  margin: 50px auto;
+                  padding: 20px;
+                  text-align: center;
+                  background-color: #f5f5f5;
+              }
+              .container {
+                  background-color: white;
+                  padding: 30px;
+                  border-radius: 10px;
+                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              h1 { color: #dc3545; }
+              a { color: #007bff; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <h1>404 - Post Not Found</h1>
+              <p>The blog post you're looking for doesn't exist.</p>
+              <a href="/blog">← Back to Blog</a>
+          </div>
+      </body>
+      </html>
+    `);
+  }
+
+  // Record blog view
+  recordBlogView(post.id, req);
+  
+  const analytics = blogAnalytics[post.id] || { views: 0 };
+  const blogShortUrl = `${req.protocol}://${req.get('host')}/blog/${post.slug}`;
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${post.title} - Blog</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+                line-height: 1.6;
+            }
+            .container {
+                background-color: white;
+                padding: 40px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .post-header {
+                border-bottom: 2px solid #e9ecef;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .post-title {
+                color: #333;
+                margin-bottom: 10px;
+                font-size: 2.5em;
+                line-height: 1.2;
+            }
+            .post-meta {
+                color: #666;
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+            .post-content {
+                color: #444;
+                font-size: 18px;
+                line-height: 1.8;
+            }
+            .post-content h1, .post-content h2, .post-content h3 {
+                color: #333;
+                margin-top: 30px;
+            }
+            .post-content p {
+                margin-bottom: 20px;
+            }
+            .post-footer {
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #e9ecef;
+            }
+            .nav-links {
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .nav-links a {
+                color: #007bff;
+                text-decoration: none;
+                margin: 0 15px;
+                font-weight: bold;
+            }
+            .nav-links a:hover {
+                text-decoration: underline;
+            }
+            .sharing-section {
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 30px;
+                text-align: center;
+            }
+            .sharing-section h3 {
+                margin-top: 0;
+                color: #333;
+            }
+            .share-button {
+                background-color: #007bff;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                text-decoration: none;
+                margin: 5px;
+                display: inline-block;
+                font-size: 14px;
+            }
+            .share-button:hover {
+                background-color: #0056b3;
+            }
+            .analytics-preview {
+                background-color: #e7f3ff;
+                padding: 15px;
+                border-radius: 8px;
+                margin-top: 20px;
+                text-align: center;
+            }
+            .experimental-badge {
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                color: white;
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: bold;
+                margin-left: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="nav-links">
+            <a href="/blog">← Back to Blog</a>
+            <a href="/">🔗 URL Shortener</a>
+            <a href="/admin">🛠️ Admin Panel</a>
+        </div>
+        
+        <div class="container">
+            <header class="post-header">
+                <h1 class="post-title">${post.title}<span class="experimental-badge">EXPERIMENTAL</span></h1>
+                <div class="post-meta">
+                    By <strong>${post.author}</strong> • 
+                    Published on ${new Date(post.createdAt).toLocaleDateString()} • 
+                    ${analytics.views} views
+                </div>
+            </header>
+            
+            <main class="post-content">
+                ${post.content}
+            </main>
+            
+            <footer class="post-footer">
+                <div class="sharing-section">
+                    <h3>📱 Share This Post</h3>
+                    <p>Create short URLs for social sharing:</p>
+                    <a href="javascript:void(0)" onclick="createShortUrl()" class="share-button">🔗 Create Short URL</a>
+                    <a href="/blog/preview/${post.slug}" target="_blank" class="share-button">👀 Preview & Analytics</a>
+                    <a href="javascript:void(0)" onclick="generateQR()" class="share-button">📱 Generate QR Code</a>
+                </div>
+                
+                <div class="analytics-preview">
+                    <strong>📊 Post Analytics:</strong> ${analytics.views} total views
+                </div>
+            </footer>
+        </div>
+        
+        <script>
+            async function createShortUrl() {
+                try {
+                    const response = await fetch('/shorten', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            originalUrl: window.location.href
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        const shortUrl = window.location.origin + '/' + data.shortCode;
+                        prompt('Short URL created! Copy this:', shortUrl);
+                    } else {
+                        // Try without custom code if it already exists
+                        const response2 = await fetch('/shorten', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ originalUrl: window.location.href })
+                        });
+                        const data2 = await response2.json();
+                        if (response2.ok) {
+                            const shortUrl = window.location.origin + '/' + data2.shortCode;
+                            prompt('Short URL created! Copy this:', shortUrl);
+                        } else {
+                            alert('Error creating short URL');
+                        }
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+            
+            function generateQR() {
+                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(window.location.href);
+                window.open(qrUrl, '_blank');
+            }
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Blog preview page (experimental feature)
+app.get('/blog/preview/:slug', (req, res) => {
+  const { slug } = req.params;
+  const post = Object.values(blogDatabase).find(p => p.slug === slug && p.published);
+  
+  if (!post) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html><head><title>Post Not Found</title></head>
+      <body><h1>Post Not Found</h1><a href="/blog">← Back to Blog</a></body></html>
+    `);
+  }
+
+  const analytics = blogAnalytics[post.id] || { views: 0, firstView: null, lastView: null, viewHistory: [] };
+  const blogUrl = `${req.protocol}://${req.get('host')}/blog/${post.slug}`;
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Blog Preview - ${post.title}</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 800px;
+                margin: 50px auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 {
+                color: #333;
+                text-align: center;
+                margin-bottom: 30px;
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .experimental-badge {
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: bold;
+                margin-left: 10px;
+            }
+            .preview-info {
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+            }
+            .url-info {
+                margin-bottom: 15px;
+            }
+            .label {
+                font-weight: bold;
+                color: #555;
+            }
+            .url {
+                word-break: break-all;
+                color: #007bff;
+            }
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .stat-card {
+                background-color: #e9ecef;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-number {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+            }
+            .stat-label {
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
+            }
+            .action-buttons {
+                display: flex;
+                gap: 15px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .btn {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                text-decoration: none;
+                display: inline-block;
+                text-align: center;
+                transition: background-color 0.3s;
+            }
+            .btn-primary {
+                background-color: #007bff;
+                color: white;
+            }
+            .btn-primary:hover {
+                background-color: #0056b3;
+            }
+            .btn-secondary {
+                background-color: #6c757d;
+                color: white;
+            }
+            .btn-secondary:hover {
+                background-color: #545b62;
+            }
+            .btn-success {
+                background-color: #28a745;
+                color: white;
+            }
+            .btn-success:hover {
+                background-color: #218838;
+            }
+            .warning {
+                background-color: #fff3cd;
+                border: 1px solid #ffeaa7;
+                color: #856404;
+                padding: 15px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+            }
+            .qr-code {
+                text-align: center;
+                margin: 20px 0;
+            }
+            .qr-code img {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+            }
+            .post-excerpt {
+                background-color: #e7f3ff;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+                border-left: 4px solid #007bff;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>📝 Blog Preview<span class="experimental-badge">EXPERIMENTAL</span></h1>
+            
+            <div class="warning">
+                <strong>🔍 Blog Analytics Preview:</strong> Get insights into this blog post's performance and engagement.
+            </div>
+            
+            <div class="preview-info">
+                <div class="url-info">
+                    <span class="label">Blog Post:</span><br>
+                    <span class="url">${post.title}</span>
+                </div>
+                <div class="url-info">
+                    <span class="label">URL:</span><br>
+                    <span class="url">${blogUrl}</span>
+                </div>
+                <div class="url-info">
+                    <span class="label">Author:</span><br>
+                    <span>${post.author}</span>
+                </div>
+                <div class="url-info">
+                    <span class="label">Published:</span><br>
+                    <span>${new Date(post.createdAt).toLocaleDateString()}</span>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">${analytics.views}</div>
+                    <div class="stat-label">Total Views</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${analytics.firstView ? new Date(analytics.firstView).toLocaleDateString() : 'Never'}</div>
+                    <div class="stat-label">First Viewed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${analytics.lastView ? new Date(analytics.lastView).toLocaleDateString() : 'Never'}</div>
+                    <div class="stat-label">Last Viewed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${analytics.viewHistory ? analytics.viewHistory.length : 0}</div>
+                    <div class="stat-label">Recent Views</div>
+                </div>
+            </div>
+            
+            <div class="post-excerpt">
+                <h3>Post Excerpt:</h3>
+                <p>${post.content.replace(/<[^>]*>/g, '').substring(0, 300)}...</p>
+            </div>
+            
+            <div class="qr-code">
+                <h3>QR Code</h3>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(blogUrl)}" alt="QR Code for ${blogUrl}">
+            </div>
+            
+            <div class="action-buttons">
+                <a href="${blogUrl}" class="btn btn-primary">📖 Read Full Post</a>
+                <a href="/blog" class="btn btn-secondary">📝 Back to Blog</a>
+                <button onclick="copyToClipboard('${blogUrl}')" class="btn btn-success">📋 Copy URL</button>
+                <button onclick="createShortUrl()" class="btn btn-secondary">🔗 Create Short URL</button>
+            </div>
+        </div>
+        
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Blog URL copied to clipboard!');
+                });
+            }
+            
+            async function createShortUrl() {
+                try {
+                    const response = await fetch('/shorten', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            originalUrl: '${blogUrl}'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (response.ok) {
+                        const shortUrl = window.location.origin + '/' + data.shortCode;
+                        prompt('Short URL created for blog post! Copy this:', shortUrl);
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Admin blog management routes
+app.get('/admin/blog', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Blog Management - Admin</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .header {
+                background-color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .header h1 {
+                margin: 0;
+                color: #333;
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .experimental-badge {
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: bold;
+                margin-left: 10px;
+            }
+            .nav-buttons {
+                display: flex;
+                gap: 10px;
+            }
+            .btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                text-decoration: none;
+                font-size: 14px;
+                text-align: center;
+                transition: background-color 0.3s;
+            }
+            .btn-primary {
+                background-color: #007bff;
+                color: white;
+            }
+            .btn-primary:hover {
+                background-color: #0056b3;
+            }
+            .btn-secondary {
+                background-color: #6c757d;
+                color: white;
+            }
+            .btn-secondary:hover {
+                background-color: #545b62;
+            }
+            .btn-success {
+                background-color: #28a745;
+                color: white;
+            }
+            .btn-success:hover {
+                background-color: #218838;
+            }
+            .btn-danger {
+                background-color: #dc3545;
+                color: white;
+            }
+            .btn-danger:hover {
+                background-color: #c82333;
+            }
+            .container {
+                background-color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                color: #555;
+            }
+            .form-group input,
+            .form-group textarea {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #ddd;
+                border-radius: 5px;
+                font-size: 16px;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+            }
+            .form-group input:focus,
+            .form-group textarea:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+            .form-group textarea {
+                height: 200px;
+                resize: vertical;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            th, td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #f8f9fa;
+                font-weight: bold;
+                color: #333;
+            }
+            tr:hover {
+                background-color: #f8f9fa;
+            }
+            .post-title {
+                font-weight: bold;
+                color: #007bff;
+            }
+            .post-status {
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            .status-published {
+                background-color: #d4edda;
+                color: #155724;
+            }
+            .status-draft {
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+            .actions {
+                display: flex;
+                gap: 5px;
+            }
+            .actions button {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            .no-data {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 40px;
+            }
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .stat-card {
+                background-color: #e9ecef;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-number {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+            }
+            .stat-label {
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>📝 Blog Management<span class="experimental-badge">EXPERIMENTAL</span></h1>
+            <div class="nav-buttons">
+                <a href="/blog" class="btn btn-secondary" target="_blank">View Blog</a>
+                <a href="/admin/dashboard" class="btn btn-secondary">URL Dashboard</a>
+                <button class="btn btn-success" onclick="showCreateForm()">+ New Post</button>
+                <a href="/admin" class="btn btn-danger" onclick="logout()">Logout</a>
+            </div>
+        </div>
+
+        <div class="stats" id="blogStats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPosts">0</div>
+                <div class="stat-label">Total Posts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="publishedPosts">0</div>
+                <div class="stat-label">Published</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalViews">0</div>
+                <div class="stat-label">Total Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgViews">0</div>
+                <div class="stat-label">Avg Views/Post</div>
+            </div>
+        </div>
+
+        <!-- Create/Edit Post Form -->
+        <div class="container" id="postForm" style="display: none;">
+            <h2 id="formTitle">Create New Blog Post</h2>
+            <form id="blogForm">
+                <input type="hidden" id="postId" name="postId">
+                <div class="form-group">
+                    <label for="title">Post Title:</label>
+                    <input type="text" id="title" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Content (HTML allowed):</label>
+                    <textarea id="content" name="content" required placeholder="Write your blog post content here. HTML tags are supported."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="author">Author:</label>
+                    <input type="text" id="author" name="author" value="Admin" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="published" name="published"> Publish immediately
+                    </label>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary">Save Post</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Posts List -->
+        <div class="container">
+            <h2>Blog Posts</h2>
+            <table id="postsTable">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Views</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="postsTableBody">
+                    <tr>
+                        <td colspan="6" class="no-data">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <script>
+            let blogPosts = {};
+            let blogAnalytics = {};
+
+            // Check if user is authenticated
+            function checkAuth() {
+                const token = localStorage.getItem('adminToken');
+                if (!token) {
+                    window.location.href = '/admin';
+                    return false;
+                }
+                return token;
+            }
+
+            // Load blog posts and analytics
+            async function loadPosts() {
+                const token = checkAuth();
+                if (!token) return;
+
+                try {
+                    const [postsResponse, analyticsResponse] = await Promise.all([
+                        fetch('/admin/api/blog/posts', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        }),
+                        fetch('/admin/api/blog/analytics', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        })
+                    ]);
+
+                    if (postsResponse.ok && analyticsResponse.ok) {
+                        blogPosts = await postsResponse.json();
+                        blogAnalytics = await analyticsResponse.json();
+                        displayPosts();
+                        updateStats();
+                    } else if (postsResponse.status === 401 || analyticsResponse.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to load blog data');
+                    }
+                } catch (error) {
+                    alert('Error loading blog data: ' + error.message);
+                }
+            }
+
+            // Display posts in table
+            function displayPosts() {
+                const tbody = document.getElementById('postsTableBody');
+                
+                if (Object.keys(blogPosts).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="no-data">No blog posts found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                for (const [id, post] of Object.entries(blogPosts)) {
+                    const row = tbody.insertRow();
+                    const analytics = blogAnalytics[id] || { views: 0 };
+                    
+                    row.innerHTML = \`
+                        <td><span class="post-title">\${post.title}</span></td>
+                        <td>\${post.author}</td>
+                        <td><span class="post-status \${post.published ? 'status-published' : 'status-draft'}">\${post.published ? 'Published' : 'Draft'}</span></td>
+                        <td><strong>\${analytics.views}</strong></td>
+                        <td>\${new Date(post.createdAt).toLocaleDateString()}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary" onclick="editPost('\${id}')">Edit</button>
+                            <button class="btn btn-secondary" onclick="viewPost('\${post.slug}')" \${!post.published ? 'disabled' : ''}>View</button>
+                            <button class="btn btn-secondary" onclick="previewPost('\${post.slug}')" \${!post.published ? 'disabled' : ''}>Analytics</button>
+                            <button class="btn btn-danger" onclick="deletePost('\${id}')">Delete</button>
+                        </td>
+                    \`;
+                }
+            }
+
+            // Update blog statistics
+            function updateStats() {
+                const totalPosts = Object.keys(blogPosts).length;
+                const publishedPosts = Object.values(blogPosts).filter(p => p.published).length;
+                const totalViews = Object.values(blogAnalytics).reduce((sum, analytics) => sum + analytics.views, 0);
+                const avgViews = publishedPosts > 0 ? Math.round(totalViews / publishedPosts * 10) / 10 : 0;
+                
+                document.getElementById('totalPosts').textContent = totalPosts;
+                document.getElementById('publishedPosts').textContent = publishedPosts;
+                document.getElementById('totalViews').textContent = totalViews;
+                document.getElementById('avgViews').textContent = avgViews;
+            }
+
+            // Show create form
+            function showCreateForm() {
+                document.getElementById('formTitle').textContent = 'Create New Blog Post';
+                document.getElementById('blogForm').reset();
+                document.getElementById('postId').value = '';
+                document.getElementById('postForm').style.display = 'block';
+                document.getElementById('title').focus();
+            }
+
+            // Hide form
+            function hideForm() {
+                document.getElementById('postForm').style.display = 'none';
+            }
+
+            // Edit post
+            function editPost(postId) {
+                const post = blogPosts[postId];
+                if (!post) return;
+
+                document.getElementById('formTitle').textContent = 'Edit Blog Post';
+                document.getElementById('postId').value = postId;
+                document.getElementById('title').value = post.title;
+                document.getElementById('content').value = post.content;
+                document.getElementById('author').value = post.author;
+                document.getElementById('published').checked = post.published;
+                document.getElementById('postForm').style.display = 'block';
+                document.getElementById('title').focus();
+            }
+
+            // View post
+            function viewPost(slug) {
+                window.open('/blog/' + slug, '_blank');
+            }
+
+            // Preview post analytics
+            function previewPost(slug) {
+                window.open('/blog/preview/' + slug, '_blank');
+            }
+
+            // Delete post
+            async function deletePost(postId) {
+                const post = blogPosts[postId];
+                if (!confirm(\`Are you sure you want to delete the post "\${post.title}"?\`)) {
+                    return;
+                }
+
+                const token = checkAuth();
+                if (!token) return;
+
+                try {
+                    const response = await fetch('/admin/api/blog/posts/' + postId, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (response.ok) {
+                        loadPosts(); // Reload the list
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to delete post');
+                    }
+                } catch (error) {
+                    alert('Error deleting post: ' + error.message);
+                }
+            }
+
+            // Submit form
+            document.getElementById('blogForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const token = checkAuth();
+                if (!token) return;
+
+                const formData = new FormData(e.target);
+                const postData = {
+                    title: formData.get('title'),
+                    content: formData.get('content'),
+                    author: formData.get('author'),
+                    published: formData.get('published') === 'on'
+                };
+
+                const postId = formData.get('postId');
+                const method = postId ? 'PUT' : 'POST';
+                const url = postId ? '/admin/api/blog/posts/' + postId : '/admin/api/blog/posts';
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(postData)
+                    });
+
+                    if (response.ok) {
+                        hideForm();
+                        loadPosts();
+                        alert(postId ? 'Post updated successfully!' : 'Post created successfully!');
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to save post');
+                    }
+                } catch (error) {
+                    alert('Error saving post: ' + error.message);
+                }
+            });
+
+            // Logout function
+            function logout() {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/admin';
+            }
+
+            // Load posts when page loads
+            window.onload = loadPosts;
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Admin API endpoints for blog management
+app.get('/admin/api/blog/posts', requireAuth, (req, res) => {
+  res.json(blogDatabase);
+});
+
+app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
+  const { title, content, author, published } = req.body;
+  
+  if (!title || !content || !author) {
+    return res.status(400).json({ error: 'Title, content, and author are required' });
+  }
+  
+  const id = generateBlogId();
+  const slug = generateSlug(title);
+  const now = new Date().toISOString();
+  
+  // Ensure slug is unique
+  let finalSlug = slug;
+  let counter = 1;
+  while (Object.values(blogDatabase).some(post => post.slug === finalSlug)) {
+    finalSlug = `${slug}-${counter}`;
+    counter++;
+  }
+  
+  const post = {
+    id,
+    title,
+    content,
+    author,
+    published: Boolean(published),
+    slug: finalSlug,
+    createdAt: now,
+    updatedAt: now
+  };
+  
+  blogDatabase[id] = post;
+  res.json(post);
+});
+
+app.put('/admin/api/blog/posts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const { title, content, author, published } = req.body;
+  
+  if (!blogDatabase[id]) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+  
+  if (!title || !content || !author) {
+    return res.status(400).json({ error: 'Title, content, and author are required' });
+  }
+  
+  const existingPost = blogDatabase[id];
+  const slug = title !== existingPost.title ? generateSlug(title) : existingPost.slug;
+  
+  // Ensure slug is unique (excluding current post)
+  let finalSlug = slug;
+  let counter = 1;
+  while (Object.values(blogDatabase).some(post => post.slug === finalSlug && post.id !== id)) {
+    finalSlug = `${slug}-${counter}`;
+    counter++;
+  }
+  
+  const updatedPost = {
+    ...existingPost,
+    title,
+    content,
+    author,
+    published: Boolean(published),
+    slug: finalSlug,
+    updatedAt: new Date().toISOString()
+  };
+  
+  blogDatabase[id] = updatedPost;
+  res.json(updatedPost);
+});
+
+app.delete('/admin/api/blog/posts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  
+  if (blogDatabase[id]) {
+    delete blogDatabase[id];
+    // Also delete analytics data
+    delete blogAnalytics[id];
+    res.json({ message: 'Post deleted successfully' });
+  } else {
+    res.status(404).json({ error: 'Post not found' });
+  }
+});
+
+app.get('/admin/api/blog/analytics', requireAuth, (req, res) => {
+  const analyticsData = {};
+  
+  for (const postId in blogDatabase) {
+    analyticsData[postId] = blogAnalytics[postId] || {
+      views: 0,
+      firstView: null,
+      lastView: null,
+      viewHistory: []
+    };
+  }
+  
+  res.json(analyticsData);
 });
 
 // Redirect endpoint
