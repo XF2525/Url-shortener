@@ -2430,305 +2430,757 @@ app.get('/blog/preview/:slug', (req, res) => {
 // Admin blog management routes
 app.get('/admin/blog', (req, res) => {
   res.send(`
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blog Management - Admin</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { margin: 0; color: #333; }
-        .experimental-badge { background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; font-size: 14px; margin: 0 5px; }
-        .btn-primary { background: #007bff; color: white; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-danger { background: #dc3545; color: white; }
-        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .automation-panel { display: none; }
-        .automation-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .automation-card { background: #f8f9fa; padding: 20px; border-radius: 8px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background: #f8f9fa; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>📝 Blog Management<span class="experimental-badge">EXPERIMENTAL</span></h1>
-        <div>
-            <a href="/blog" class="btn btn-secondary" target="_blank">View Blog</a>
-            <a href="/admin/dashboard" class="btn btn-secondary">URL Dashboard</a>
-            <button class="btn btn-success" onclick="showCreateForm()">+ New Post</button>
-            <button class="btn btn-primary" onclick="toggleAutomation()" style="background: #ff6b6b;">🎯 Blog Views</button>
-            <a href="/admin" class="btn btn-danger">Logout</a>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Blog Management - Admin</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .header {
+                background-color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .header h1 {
+                margin: 0;
+                color: #333;
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            .experimental-badge {
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: bold;
+                margin-left: 10px;
+            }
+            .nav-buttons {
+                display: flex;
+                gap: 10px;
+            }
+            .btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                text-decoration: none;
+                font-size: 14px;
+                text-align: center;
+                transition: background-color 0.3s;
+            }
+            .btn-primary {
+                background-color: #007bff;
+                color: white;
+            }
+            .btn-primary:hover {
+                background-color: #0056b3;
+            }
+            .btn-secondary {
+                background-color: #6c757d;
+                color: white;
+            }
+            .btn-secondary:hover {
+                background-color: #545b62;
+            }
+            .btn-success {
+                background-color: #28a745;
+                color: white;
+            }
+            .btn-success:hover {
+                background-color: #218838;
+            }
+            .btn-danger {
+                background-color: #dc3545;
+                color: white;
+            }
+            .btn-danger:hover {
+                background-color: #c82333;
+            }
+            .container {
+                background-color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .form-group label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                color: #555;
+            }
+            .form-group input,
+            .form-group textarea {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #ddd;
+                border-radius: 5px;
+                font-size: 16px;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+            }
+            .form-group input:focus,
+            .form-group textarea:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+            .form-group textarea {
+                height: 200px;
+                resize: vertical;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+            th, td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            th {
+                background-color: #f8f9fa;
+                font-weight: bold;
+                color: #333;
+            }
+            tr:hover {
+                background-color: #f8f9fa;
+            }
+            .post-title {
+                font-weight: bold;
+                color: #007bff;
+            }
+            .post-status {
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            .status-published {
+                background-color: #d4edda;
+                color: #155724;
+            }
+            .status-draft {
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+            .actions {
+                display: flex;
+                gap: 5px;
+            }
+            .actions button {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+            .no-data {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 40px;
+            }
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .stat-card {
+                background-color: #e9ecef;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-number {
+                font-size: 24px;
+                font-weight: bold;
+                color: #007bff;
+            }
+            .stat-label {
+                font-size: 12px;
+                color: #666;
+                margin-top: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>📝 Blog Management<span class="experimental-badge">EXPERIMENTAL</span></h1>
+            <div class="nav-buttons">
+                <a href="/blog" class="btn btn-secondary" target="_blank">View Blog</a>
+                <a href="/admin/dashboard" class="btn btn-secondary">URL Dashboard</a>
+                <button class="btn btn-success" onclick="showCreateForm()">+ New Post</button>
+                <button class="btn btn-primary" onclick="showBlogAutomation()" style="background-color: #ff6b6b;">🎯 Blog Views</button>
+                <a href="/admin" class="btn btn-danger" onclick="logout()">Logout</a>
+            </div>
         </div>
-    </div>
 
-    <div class="container automation-panel" id="automationPanel">
-        <h2>🎯 Blog Views Modification <span class="experimental-badge">EXPERIMENTAL</span></h2>
-        <p>Modify blog post view counts for testing purposes. These modified views will be visible to all blog visitors.</p>
-        
-        <div class="automation-grid">
-            <div class="automation-card">
-                <h3>Generate Views</h3>
-                <div class="form-group">
-                    <label>Target Post:</label>
-                    <select id="targetPost">
-                        <option value="">Select post...</option>
-                    </select>
+        <div class="stats" id="blogStats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPosts">0</div>
+                <div class="stat-label">Total Posts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="publishedPosts">0</div>
+                <div class="stat-label">Published</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalViews">0</div>
+                <div class="stat-label">Total Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgViews">0</div>
+                <div class="stat-label">Avg Views/Post</div>
+            </div>
+        </div>
+
+        <!-- Blog View Automation Panel (Hidden by default) -->
+        <div class="container" id="blogAutomationPanel" style="display: none;">
+            <h2>🎯 Blog Views Modification <span style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">EXPERIMENTAL</span></h2>
+            <p style="color: #666; margin-bottom: 20px;">Modify blog post view counts for testing and demonstration purposes. These modified views will be visible to all blog visitors.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333;">Single Post Views</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Blog Post:</label>
+                        <select id="blogAutomationPostId" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">Select post...</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Views:</label>
+                        <input type="number" id="blogViewCount" min="1" max="1000" value="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Delay (ms):</label>
+                        <input type="number" id="blogViewDelay" min="10" max="5000" value="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Minimum 10ms between views</small>
+                    </div>
+                    <button onclick="generateSingleBlogViews()" style="background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">🎯 Generate Views</button>
                 </div>
-                <div class="form-group">
-                    <label>Number of Views:</label>
-                    <input type="number" id="viewCount" value="10" min="1" max="1000">
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333;">Bulk Views Generation</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Views per Post:</label>
+                        <input type="number" id="bulkBlogViewCount" min="1" max="100" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Delay (ms):</label>
+                        <input type="number" id="bulkBlogDelay" min="50" max="5000" value="200" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Minimum 50ms for bulk operations</small>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 10px; background-color: #e7f3ff; border-radius: 4px; font-size: 14px;">
+                        <strong>Bulk Target:</strong> All <span id="bulkBlogPostCount">0</span> published posts
+                    </div>
+                    <button onclick="generateBulkBlogViews()" style="background-color: #ff6b6b; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">⚡ Generate Bulk Views</button>
                 </div>
-                <button class="btn btn-success" onclick="generateViews()">Generate Views</button>
+
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333;">Manual View Count</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target Blog Post:</label>
+                        <select id="manualBlogPostId" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">Select post...</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Set View Count:</label>
+                        <input type="number" id="manualViewCount" min="0" max="999999" value="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Set exact view count (0 to reset)</small>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px; font-size: 14px;">
+                        <strong>⚠️ Warning:</strong> This will override current view count
+                    </div>
+                    <button onclick="setManualBlogViews()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">✏️ Set View Count</button>
+                </div>
             </div>
             
-            <div class="automation-card">
-                <h3>Bulk Generation</h3>
-                <div class="form-group">
-                    <label>Views per Post:</label>
-                    <input type="number" id="bulkViews" value="5" min="1" max="100">
-                </div>
-                <button class="btn btn-primary" onclick="generateBulkViews()">Generate for All Posts</button>
+            <div id="blogAutomationStatus" style="background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+                <h4 style="margin-top: 0;">Blog Automation Status</h4>
+                <div id="blogStatusMessage">Ready to start blog view automation...</div>
             </div>
             
-            <div class="automation-card">
-                <h3>Set Manual Count</h3>
-                <div class="form-group">
-                    <label>Target Post:</label>
-                    <select id="manualPost">
-                        <option value="">Select post...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>View Count:</label>
-                    <input type="number" id="manualCount" value="100" min="0">
-                </div>
-                <button class="btn btn-secondary" onclick="setManualViews()">Set Count</button>
+            <div style="text-align: center;">
+                <button onclick="hideBlogAutomation()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close Blog Automation Panel</button>
             </div>
         </div>
-        
-        <div id="automationStatus" style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 20px; display: none;">
-            <div id="statusMessage"></div>
+
+        <!-- Create/Edit Post Form -->
+        <div class="container" id="postForm" style="display: none;">
+            <h2 id="formTitle">Create New Blog Post</h2>
+            <form id="blogForm">
+                <input type="hidden" id="postId" name="postId">
+                <div class="form-group">
+                    <label for="title">Post Title:</label>
+                    <input type="text" id="title" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="content">Content (HTML allowed):</label>
+                    <textarea id="content" name="content" required placeholder="Write your blog post content here. HTML tags are supported."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="author">Author:</label>
+                    <input type="text" id="author" name="author" value="Admin" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="published" name="published"> Publish immediately
+                    </label>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary">Save Post</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideForm()">Cancel</button>
+                </div>
+            </form>
         </div>
-    </div>
 
-    <div class="container">
-        <h2>Blog Posts</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Status</th>
-                    <th>Views</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="postsTable">
-                <tr><td colspan="6">Loading...</td></tr>
-            </tbody>
-        </table>
-    </div>
+        <!-- Posts List -->
+        <div class="container">
+            <h2>Blog Posts</h2>
+            <table id="postsTable">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Views</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="postsTableBody">
+                    <tr>
+                        <td colspan="6" class="no-data">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-    <script>
-        let blogPosts = {};
-        let blogAnalytics = {};
+        <script>
+            let blogPosts = {};
+            let blogAnalytics = {};
 
-        function checkAuth() {
-            const token = localStorage.getItem('adminToken');
-            if (!token) { window.location.href = '/admin'; return false; }
-            return token;
-        }
-
-        async function loadPosts() {
-            const token = checkAuth();
-            if (!token) return;
-
-            try {
-                const [postsResponse, analyticsResponse] = await Promise.all([
-                    fetch('/admin/api/blog/posts', { headers: { 'Authorization': 'Bearer ' + token } }),
-                    fetch('/admin/api/blog/analytics', { headers: { 'Authorization': 'Bearer ' + token } })
-                ]);
-
-                if (postsResponse.ok && analyticsResponse.ok) {
-                    blogPosts = await postsResponse.json();
-                    blogAnalytics = await analyticsResponse.json();
-                    displayPosts();
-                    populateDropdowns();
-                } else {
-                    alert('Failed to load blog data');
+            // Check if user is authenticated
+            function checkAuth() {
+                const token = localStorage.getItem('adminToken');
+                if (!token) {
+                    window.location.href = '/admin';
+                    return false;
                 }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        }
-
-        function displayPosts() {
-            const tbody = document.getElementById('postsTable');
-            if (Object.keys(blogPosts).length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">No blog posts found</td></tr>';
-                return;
+                return token;
             }
 
-            tbody.innerHTML = '';
-            for (const [id, post] of Object.entries(blogPosts)) {
-                const analytics = blogAnalytics[id] || { views: 0 };
-                const row = tbody.insertRow();
-                row.innerHTML = '<td>' + post.title + '</td>' +
-                               '<td>' + post.author + '</td>' +
-                               '<td>' + (post.published ? 'Published' : 'Draft') + '</td>' +
-                               '<td><strong>' + analytics.views + '</strong></td>' +
-                               '<td>' + new Date(post.createdAt).toLocaleDateString() + '</td>' +
-                               '<td><button class="btn btn-secondary" onclick="deletePost(\'' + id + '\')">Delete</button></td>';
-            }
-        }
+            // Load blog posts and analytics
+            async function loadPosts() {
+                const token = checkAuth();
+                if (!token) return;
 
-        function populateDropdowns() {
-            const publishedPosts = Object.values(blogPosts).filter(post => post.published);
-            const selects = [document.getElementById('targetPost'), document.getElementById('manualPost')];
-            
-            selects.forEach(select => {
-                select.innerHTML = '<option value="">Select post...</option>';
-                publishedPosts.forEach(post => {
-                    const option = document.createElement('option');
-                    option.value = post.id;
-                    option.textContent = post.title.substring(0, 50);
-                    select.appendChild(option);
-                });
+                try {
+                    const [postsResponse, analyticsResponse] = await Promise.all([
+                        fetch('/admin/api/blog/posts', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        }),
+                        fetch('/admin/api/blog/analytics', {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        })
+                    ]);
+
+                    if (postsResponse.ok && analyticsResponse.ok) {
+                        blogPosts = await postsResponse.json();
+                        blogAnalytics = await analyticsResponse.json();
+                        displayPosts();
+                        updateStats();
+                    } else if (postsResponse.status === 401 || analyticsResponse.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to load blog data');
+                    }
+                } catch (error) {
+                    alert('Error loading blog data: ' + error.message);
+                }
+            }
+
+            // Display posts in table
+            function displayPosts() {
+                const tbody = document.getElementById('postsTableBody');
+                
+                if (Object.keys(blogPosts).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="no-data">No blog posts found</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                for (const [id, post] of Object.entries(blogPosts)) {
+                    const row = tbody.insertRow();
+                    const analytics = blogAnalytics[id] || { views: 0 };
+                    
+                    row.innerHTML = \`
+                        <td><span class="post-title">\${post.title}</span></td>
+                        <td>\${post.author}</td>
+                        <td><span class="post-status \${post.published ? 'status-published' : 'status-draft'}">\${post.published ? 'Published' : 'Draft'}</span></td>
+                        <td><strong>\${analytics.views}</strong></td>
+                        <td>\${new Date(post.createdAt).toLocaleDateString()}</td>
+                        <td class="actions">
+                            <button class="btn btn-primary" onclick="editPost('\${id}')">Edit</button>
+                            <button class="btn btn-secondary" onclick="viewPost('\${post.slug}')" \${!post.published ? 'disabled' : ''}>View</button>
+                            <button class="btn btn-secondary" onclick="previewPost('\${post.slug}')" \${!post.published ? 'disabled' : ''}>Analytics</button>
+                            <button class="btn btn-danger" onclick="deletePost('\${id}')">Delete</button>
+                        </td>
+                    \`;
+                }
+            }
+
+            // Update blog statistics
+            function updateStats() {
+                const totalPosts = Object.keys(blogPosts).length;
+                const publishedPosts = Object.values(blogPosts).filter(p => p.published).length;
+                const totalViews = Object.values(blogAnalytics).reduce((sum, analytics) => sum + analytics.views, 0);
+                const avgViews = publishedPosts > 0 ? Math.round(totalViews / publishedPosts * 10) / 10 : 0;
+                
+                document.getElementById('totalPosts').textContent = totalPosts;
+                document.getElementById('publishedPosts').textContent = publishedPosts;
+                document.getElementById('totalViews').textContent = totalViews;
+                document.getElementById('avgViews').textContent = avgViews;
+            }
+
+            // Show create form
+            function showCreateForm() {
+                document.getElementById('formTitle').textContent = 'Create New Blog Post';
+                document.getElementById('blogForm').reset();
+                document.getElementById('postId').value = '';
+                document.getElementById('postForm').style.display = 'block';
+                document.getElementById('title').focus();
+            }
+
+            // Hide form
+            function hideForm() {
+                document.getElementById('postForm').style.display = 'none';
+            }
+
+            // Edit post
+            function editPost(postId) {
+                const post = blogPosts[postId];
+                if (!post) return;
+
+                document.getElementById('formTitle').textContent = 'Edit Blog Post';
+                document.getElementById('postId').value = postId;
+                document.getElementById('title').value = post.title;
+                document.getElementById('content').value = post.content;
+                document.getElementById('author').value = post.author;
+                document.getElementById('published').checked = post.published;
+                document.getElementById('postForm').style.display = 'block';
+                document.getElementById('title').focus();
+            }
+
+            // View post
+            function viewPost(slug) {
+                window.open('/blog/' + slug, '_blank');
+            }
+
+            // Preview post analytics
+            function previewPost(slug) {
+                window.open('/blog/preview/' + slug, '_blank');
+            }
+
+            // Delete post
+            async function deletePost(postId) {
+                const post = blogPosts[postId];
+                if (!confirm(\`Are you sure you want to delete the post "\${post.title}"?\`)) {
+                    return;
+                }
+
+                const token = checkAuth();
+                if (!token) return;
+
+                try {
+                    const response = await fetch('/admin/api/blog/posts/' + postId, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+
+                    if (response.ok) {
+                        loadPosts(); // Reload the list
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to delete post');
+                    }
+                } catch (error) {
+                    alert('Error deleting post: ' + error.message);
+                }
+            }
+
+            // Submit form
+            document.getElementById('blogForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const token = checkAuth();
+                if (!token) return;
+
+                const formData = new FormData(e.target);
+                const postData = {
+                    title: formData.get('title'),
+                    content: formData.get('content'),
+                    author: formData.get('author'),
+                    published: formData.get('published') === 'on'
+                };
+
+                const postId = formData.get('postId');
+                const method = postId ? 'PUT' : 'POST';
+                const url = postId ? '/admin/api/blog/posts/' + postId : '/admin/api/blog/posts';
+
+                try {
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(postData)
+                    });
+
+                    if (response.ok) {
+                        hideForm();
+                        loadPosts();
+                        alert(postId ? 'Post updated successfully!' : 'Post created successfully!');
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        alert('Failed to save post');
+                    }
+                } catch (error) {
+                    alert('Error saving post: ' + error.message);
+                }
             });
-        }
 
-        function toggleAutomation() {
-            const panel = document.getElementById('automationPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        }
-
-        async function generateViews() {
-            const token = checkAuth();
-            const blogId = document.getElementById('targetPost').value;
-            const viewCount = document.getElementById('viewCount').value;
-
-            if (!blogId) { alert('Please select a post'); return; }
-
-            try {
-                const response = await fetch('/admin/api/blog/automation/generate-views', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                    body: JSON.stringify({ blogId, viewCount: parseInt(viewCount), delay: 100 })
-                });
-
-                if (response.ok) {
-                    showStatus('Started generating ' + viewCount + ' views...');
-                    setTimeout(() => { loadPosts(); showStatus('Completed!'); }, 2000);
-                } else {
-                    alert('Error generating views');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            // Logout function
+            function logout() {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/admin';
             }
-        }
 
-        async function generateBulkViews() {
-            const token = checkAuth();
-            const viewsPerPost = document.getElementById('bulkViews').value;
-            const publishedCount = Object.values(blogPosts).filter(post => post.published).length;
-
-            if (publishedCount === 0) { alert('No published posts'); return; }
-            if (!confirm('Generate ' + viewsPerPost + ' views for each of ' + publishedCount + ' posts?')) return;
-
-            try {
-                const response = await fetch('/admin/api/blog/automation/generate-bulk-views', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                    body: JSON.stringify({ viewsPerPost: parseInt(viewsPerPost), delay: 200 })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    showStatus('Started bulk generation: ' + data.estimatedTotal + ' total views...');
-                    setTimeout(() => { loadPosts(); showStatus('Bulk generation completed!'); }, 5000);
-                } else {
-                    alert('Error generating bulk views');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            // Show blog automation panel
+            function showBlogAutomation() {
+                document.getElementById('blogAutomationPanel').style.display = 'block';
+                populateBlogPostDropdowns();
+                updateBulkBlogPostCount();
+                document.getElementById('blogAutomationPanel').scrollIntoView({ behavior: 'smooth' });
             }
-        }
 
-        async function setManualViews() {
-            const token = checkAuth();
-            const blogId = document.getElementById('manualPost').value;
-            const viewCount = document.getElementById('manualCount').value;
-
-            if (!blogId) { alert('Please select a post'); return; }
-
-            const post = blogPosts[blogId];
-            if (!confirm('Set view count for "' + post.title + '" to ' + viewCount + '?')) return;
-
-            try {
-                const response = await fetch('/admin/api/blog/automation/set-views', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                    body: JSON.stringify({ blogId, viewCount: parseInt(viewCount) })
-                });
-
-                if (response.ok) {
-                    showStatus('View count set to ' + viewCount);
-                    loadPosts();
-                } else {
-                    alert('Error setting view count');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            // Hide blog automation panel
+            function hideBlogAutomation() {
+                document.getElementById('blogAutomationPanel').style.display = 'none';
             }
-        }
 
-        function showStatus(message) {
-            const statusDiv = document.getElementById('automationStatus');
-            document.getElementById('statusMessage').textContent = message;
-            statusDiv.style.display = 'block';
-        }
-
-        async function deletePost(postId) {
-            const token = checkAuth();
-            const post = blogPosts[postId];
-            if (!confirm('Delete "' + post.title + '"?')) return;
-
-            try {
-                const response = await fetch('/admin/api/blog/posts/' + postId, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token }
+            // Populate blog post dropdowns for automation
+            function populateBlogPostDropdowns() {
+                const publishedPosts = Object.values(blogPosts).filter(post => post.published);
+                
+                const selectElements = [
+                    document.getElementById('blogAutomationPostId'),
+                    document.getElementById('manualBlogPostId')
+                ];
+                
+                selectElements.forEach(select => {
+                    select.innerHTML = '<option value="">Select post...</option>';
+                    
+                    for (const post of publishedPosts) {
+                        const option = document.createElement('option');
+                        option.value = post.id;
+                        option.textContent = `${post.title.substring(0, 50)}${post.title.length > 50 ? '...' : ''}`;
+                        select.appendChild(option);
+                    }
                 });
-
-                if (response.ok) {
-                    loadPosts();
-                } else {
-                    alert('Failed to delete post');
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
             }
-        }
 
-        function showCreateForm() {
-            alert('Blog creation feature will be added in next update');
-        }
+            // Update bulk blog post count
+            function updateBulkBlogPostCount() {
+                const publishedCount = Object.values(blogPosts).filter(post => post.published).length;
+                document.getElementById('bulkBlogPostCount').textContent = publishedCount;
+            }
 
-        window.onload = loadPosts;
-    </script>
-</body>
-</html>
+            // Generate views for single blog post
+            async function generateSingleBlogViews() {
+                const token = checkAuth();
+                if (!token) return;
+
+                const blogId = document.getElementById('blogAutomationPostId').value;
+                const viewCount = document.getElementById('blogViewCount').value;
+                const delay = document.getElementById('blogViewDelay').value;
+
+                if (!blogId) {
+                    alert('Please select a blog post first');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/admin/api/blog/automation/generate-views', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            blogId: blogId,
+                            viewCount: parseInt(viewCount),
+                            delay: parseInt(delay)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showBlogAutomationStatus(\`✅ Started generating \${viewCount} views for selected blog post. This may take a few moments...\`);
+                        
+                        // Refresh data after a delay to show updated analytics
+                        setTimeout(() => {
+                            loadPosts();
+                            showBlogAutomationStatus(\`✅ Completed! Generated \${viewCount} views for blog post. Analytics updated.\`);
+                        }, parseInt(delay) * parseInt(viewCount) + 2000);
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error generating blog views: ' + error.message);
+                }
+            }
+
+            // Generate bulk views for all published blog posts
+            async function generateBulkBlogViews() {
+                const token = checkAuth();
+                if (!token) return;
+
+                const viewsPerPost = document.getElementById('bulkBlogViewCount').value;
+                const delay = document.getElementById('bulkBlogDelay').value;
+                const publishedPostCount = Object.values(blogPosts).filter(post => post.published).length;
+
+                if (publishedPostCount === 0) {
+                    alert('No published blog posts available for bulk automation');
+                    return;
+                }
+
+                if (!confirm(\`This will generate \${viewsPerPost} views for each of the \${publishedPostCount} published posts (\${publishedPostCount * viewsPerPost} total views). Continue?\`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/admin/api/blog/automation/generate-bulk-views', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            viewsPerPost: parseInt(viewsPerPost),
+                            delay: parseInt(delay)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showBlogAutomationStatus(\`⚡ Started bulk blog view generation: \${viewsPerPost} views per post for \${publishedPostCount} published posts. Total: \${data.estimatedTotal} views. This may take several minutes...\`);
+                        
+                        // Refresh data after estimated completion time
+                        const estimatedTime = publishedPostCount * parseInt(viewsPerPost) * parseInt(delay) + 5000;
+                        setTimeout(() => {
+                            loadPosts();
+                            showBlogAutomationStatus(\`✅ Bulk blog automation completed! Generated approximately \${data.estimatedTotal} views. Analytics updated.\`);
+                        }, estimatedTime);
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error generating bulk blog views: ' + error.message);
+                }
+            }
+
+            // Set manual blog view count
+            async function setManualBlogViews() {
+                const token = checkAuth();
+                if (!token) return;
+
+                const blogId = document.getElementById('manualBlogPostId').value;
+                const viewCount = document.getElementById('manualViewCount').value;
+
+                if (!blogId) {
+                    alert('Please select a blog post first');
+                    return;
+                }
+
+                const post = blogPosts[blogId];
+                if (!confirm(\`Set view count for "\${post.title}" to \${viewCount}? This will override the current view count.\`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/admin/api/blog/automation/set-views', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            blogId: blogId,
+                            viewCount: parseInt(viewCount)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showBlogAutomationStatus(\`✅ View count for "\${post.title}" set to \${viewCount}.\`);
+                        loadPosts(); // Refresh data immediately
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error setting blog view count: ' + error.message);
+                }
+            }
+
+            // Show blog automation status
+            function showBlogAutomationStatus(message) {
+                const statusDiv = document.getElementById('blogAutomationStatus');
+                const messageDiv = document.getElementById('blogStatusMessage');
+                messageDiv.textContent = message;
+                statusDiv.style.display = 'block';
+            }
+
+            // Load posts when page loads
+            window.onload = loadPosts;
+        </script>
+    </body>
+    </html>
   `);
 });
+
 // Admin API endpoints for blog management
 app.get('/admin/api/blog/posts', requireAuth, (req, res) => {
   res.json(blogDatabase);
