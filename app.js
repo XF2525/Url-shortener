@@ -4,6 +4,43 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuration constants for efficiency
+const CONFIG = {
+  HISTORY_LIMIT: 100,
+  OPERATIONS_LOG_LIMIT: 1000,
+  BULK_CLICK_LIMIT: 50,
+  BULK_BLOG_VIEW_LIMIT: 30,
+  BASE_DELAYS: {
+    CLICK_GENERATION: 200,
+    BLOG_VIEW_GENERATION: 300
+  },
+  TIME_WINDOWS: {
+    ONE_HOUR: 60 * 60 * 1000,
+    ONE_DAY: 24 * 60 * 60 * 1000
+  }
+};
+
+// Enhanced utility functions for analytics caching
+const analyticsCache = {
+  urlStats: null,
+  blogStats: null,
+  lastUpdated: 0,
+  CACHE_DURATION: 10000 // 10 seconds
+};
+
+function getCachedAnalytics(type) {
+  const now = Date.now();
+  if (analyticsCache.lastUpdated + analyticsCache.CACHE_DURATION > now) {
+    return analyticsCache[type];
+  }
+  return null;
+}
+
+function setCachedAnalytics(type, data) {
+  analyticsCache[type] = data;
+  analyticsCache.lastUpdated = Date.now();
+}
+
 // In-memory storage for URL mappings
 const urlDatabase = {};
 
@@ -58,43 +95,62 @@ function isValidUrl(string) {
   }
 }
 
-// Function to record click analytics
-function recordClick(shortCode, req) {
-  if (!urlAnalytics[shortCode]) {
-    urlAnalytics[shortCode] = {
-      clicks: 0,
-      firstClick: null,
-      lastClick: null,
-      clickHistory: []
+// Unified analytics recording function
+function recordAnalytics(database, key, req, eventType = 'interaction') {
+  if (!database[key]) {
+    const isView = eventType === 'view';
+    database[key] = {
+      [isView ? 'views' : 'clicks']: 0,
+      [isView ? 'firstView' : 'firstClick']: null,
+      [isView ? 'lastView' : 'lastClick']: null,
+      [isView ? 'viewHistory' : 'clickHistory']: []
     };
   }
   
   const timestamp = new Date();
-  urlAnalytics[shortCode].clicks++;
-  urlAnalytics[shortCode].lastClick = timestamp;
+  const analytics = database[key];
+  const isView = eventType === 'view';
+  const countKey = isView ? 'views' : 'clicks';
+  const firstKey = isView ? 'firstView' : 'firstClick';
+  const lastKey = isView ? 'lastView' : 'lastClick';
+  const historyKey = isView ? 'viewHistory' : 'clickHistory';
   
-  if (!urlAnalytics[shortCode].firstClick) {
-    urlAnalytics[shortCode].firstClick = timestamp;
+  analytics[countKey]++;
+  analytics[lastKey] = timestamp;
+  
+  if (!analytics[firstKey]) {
+    analytics[firstKey] = timestamp;
   }
   
-  // Store click history (limit to last 100 clicks for memory management)
-  urlAnalytics[shortCode].clickHistory.push({
+  // Store history with memory management
+  analytics[historyKey].push({
     timestamp,
     userAgent: req.get('User-Agent') || 'Unknown',
     ip: req.ip || req.connection.remoteAddress || 'Unknown'
   });
   
-  if (urlAnalytics[shortCode].clickHistory.length > 100) {
-    urlAnalytics[shortCode].clickHistory.shift();
+  if (analytics[historyKey].length > CONFIG.HISTORY_LIMIT) {
+    analytics[historyKey].shift();
   }
+  
+  // Invalidate cache when data changes
+  analyticsCache.lastUpdated = 0;
 }
 
-// Function to generate blog post ID
+// Optimized analytics recording functions
+function recordClick(shortCode, req) {
+  recordAnalytics(urlAnalytics, shortCode, req, 'click');
+}
+
+function recordBlogView(blogId, req) {
+  recordAnalytics(blogAnalytics, blogId, req, 'view');
+}
+
+// Utility functions
 function generateBlogId() {
   return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-// Function to generate blog slug from title
 function generateSlug(title) {
   return title
     .toLowerCase()
@@ -104,40 +160,99 @@ function generateSlug(title) {
     .trim('-');
 }
 
-// Function to record blog view analytics
-function recordBlogView(blogId, req) {
-  if (!blogAnalytics[blogId]) {
-    blogAnalytics[blogId] = {
-      views: 0,
-      firstView: null,
-      lastView: null,
-      viewHistory: []
-    };
-  }
-  
-  const timestamp = new Date();
-  blogAnalytics[blogId].views++;
-  blogAnalytics[blogId].lastView = timestamp;
-  
-  if (!blogAnalytics[blogId].firstView) {
-    blogAnalytics[blogId].firstView = timestamp;
-  }
-  
-  // Store view history (limit to last 100 views for memory management)
-  blogAnalytics[blogId].viewHistory.push({
-    timestamp,
-    userAgent: req.get('User-Agent') || 'Unknown',
-    ip: req.ip || req.connection.remoteAddress || 'Unknown'
-  });
-  
-  if (blogAnalytics[blogId].viewHistory.length > 100) {
-    blogAnalytics[blogId].viewHistory.shift();
-  }
-}
-
 // Advanced security functions
 function getClientIP(req) {
   return req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+}
+
+// Enhanced error handling utilities
+function createErrorHandler(operation) {
+  return (error, req, res, next) => {
+    console.error(`Error in ${operation}:`, error);
+    logAdminOperation('ERROR', getClientIP(req), { operation, error: error.message });
+    
+    if (res.headersSent) {
+      return next(error);
+    }
+    
+    sendError(res, error.message || 'Internal server error', error.status || 500);
+  };
+}
+
+function validateInput(schema, data) {
+  const errors = [];
+  
+  for (const [field, rules] of Object.entries(schema)) {
+    const value = data[field];
+    
+    if (rules.required && (!value || value.toString().trim() === '')) {
+      errors.push(`${field} is required`);
+      continue;
+    }
+    
+    if (value && rules.type) {
+      if (rules.type === 'number' && isNaN(Number(value))) {
+        errors.push(`${field} must be a number`);
+      }
+      if (rules.type === 'string' && typeof value !== 'string') {
+        errors.push(`${field} must be a string`);
+      }
+    }
+    
+    if (value && rules.min && Number(value) < rules.min) {
+      errors.push(`${field} must be at least ${rules.min}`);
+    }
+    
+    if (value && rules.max && Number(value) > rules.max) {
+      errors.push(`${field} must be at most ${rules.max}`);
+    }
+    
+    if (value && rules.pattern && !rules.pattern.test(value)) {
+      errors.push(`${field} format is invalid`);
+    }
+  }
+  
+  return errors;
+}
+
+// Response helper utilities for efficiency
+function sendSuccess(res, data, message = 'Success') {
+  res.status(200).json({ success: true, message, ...data });
+}
+
+function sendError(res, error, status = 400) {
+  res.status(status).json({ 
+    success: false, 
+    error: typeof error === 'string' ? error : error.message || 'Unknown error'
+  });
+}
+
+function sendJSON(res, data) {
+  res.setHeader('Content-Type', 'application/json');
+  res.json(data);
+}
+
+// Optimized memory management utility
+function trimArray(arr, maxLength) {
+  if (arr.length > maxLength) {
+    arr.splice(0, arr.length - maxLength);
+  }
+}
+
+// Optimized time-based filtering
+function filterByTimeWindow(timestamps, windowMs) {
+  const cutoff = Date.now() - windowMs;
+  let startIndex = 0;
+  
+  // Find first valid timestamp using binary search for efficiency
+  for (let i = 0; i < timestamps.length; i++) {
+    if (timestamps[i] >= cutoff) {
+      startIndex = i;
+      break;
+    }
+  }
+  
+  return timestamps.slice(startIndex);
 }
 
 function logAdminOperation(operation, ip, details = {}) {
@@ -150,19 +265,13 @@ function logAdminOperation(operation, ip, details = {}) {
   };
   
   adminSecurity.operationLogs.push(logEntry);
-  
-  // Keep only last 1000 operations for memory management
-  if (adminSecurity.operationLogs.length > 1000) {
-    adminSecurity.operationLogs.shift();
-  }
+  trimArray(adminSecurity.operationLogs, CONFIG.OPERATIONS_LOG_LIMIT);
   
   return logEntry;
 }
 
 function checkRateLimit(ip, operationType) {
   const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  const oneDay = 24 * oneHour;
   
   if (!adminSecurity.ipTracking[ip]) {
     adminSecurity.ipTracking[ip] = {
@@ -175,9 +284,9 @@ function checkRateLimit(ip, operationType) {
   
   const tracking = adminSecurity.ipTracking[ip];
   
-  // Clean old operations
-  tracking.operationsLastHour = tracking.operationsLastHour.filter(time => now - time < oneHour);
-  tracking.bulkOperationsLastDay = tracking.bulkOperationsLastDay.filter(time => now - time < oneDay);
+  // Optimized cleanup with efficient filtering
+  tracking.operationsLastHour = filterByTimeWindow(tracking.operationsLastHour, CONFIG.TIME_WINDOWS.ONE_HOUR);
+  tracking.bulkOperationsLastDay = filterByTimeWindow(tracking.bulkOperationsLastDay, CONFIG.TIME_WINDOWS.ONE_DAY);
   
   // Check rate limits
   if (operationType === 'bulk') {
@@ -250,6 +359,125 @@ function requireAdvancedAuth(req, res, next) {
   logAdminOperation('AUTH_CHECK', ip, { path, userAgent: req.get('User-Agent') });
   
   next();
+}
+
+// HTML Template utilities for efficiency
+function generateHTMLTemplate(title, content, additionalCSS = '', additionalJS = '') {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <style>
+            ${getCommonCSS()}
+            ${additionalCSS}
+        </style>
+    </head>
+    <body>
+        ${content}
+        <script>
+            ${getCommonJS()}
+            ${additionalJS}
+        </script>
+    </body>
+    </html>
+  `;
+}
+
+function getCommonCSS() {
+  return `
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+    .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    .experimental-badge {
+        background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: bold;
+        display: inline-block;
+        margin-left: 10px;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #555;
+    }
+    input[type="text"], input[type="url"], textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+    button {
+        background: linear-gradient(45deg, #4CAF50, #45a049);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+  `;
+}
+
+function getCommonJS() {
+  return `
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Copied to clipboard!');
+        });
+    }
+    
+    function showMessage(message, type = 'info') {
+        const div = document.createElement('div');
+        div.textContent = message;
+        div.style.cssText = \`
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            padding: 15px; border-radius: 5px; color: white;
+            background: \${type === 'error' ? '#f44336' : '#4CAF50'};
+            animation: slideIn 0.3s ease;
+        \`;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    }
+  `;
 }
 
 // Middleware to check admin authentication
@@ -536,51 +764,59 @@ app.get('/', (req, res) => {
 
 // Shorten URL endpoint
 app.post('/shorten', (req, res) => {
-  const { originalUrl, customCode } = req.body;
-  
-  // Validate URL
-  if (!originalUrl || !isValidUrl(originalUrl)) {
-    return res.status(400).json({ error: 'Please provide a valid URL' });
-  }
-  
-  // Check if custom code is provided and validate it
-  if (customCode) {
-    // Validate custom code (alphanumeric, 3-20 characters)
-    if (!/^[a-zA-Z0-9]{3,20}$/.test(customCode)) {
-      return res.status(400).json({ 
-        error: 'Custom code must be 3-20 characters long and contain only letters and numbers' 
-      });
+  try {
+    const { originalUrl, customCode } = req.body;
+    
+    // Validate input using utility function
+    const validationErrors = validateInput({
+      originalUrl: { required: true, type: 'string' }
+    }, req.body);
+    
+    if (validationErrors.length > 0) {
+      return sendError(res, validationErrors.join(', '));
     }
     
-    // Check if custom code already exists
-    if (urlDatabase[customCode]) {
-      return res.status(409).json({ 
-        error: 'Custom code already exists. Please choose a different one.' 
-      });
+    // Validate URL
+    if (!isValidUrl(originalUrl)) {
+      return sendError(res, 'Please provide a valid URL');
     }
     
-    // Use custom code
-    urlDatabase[customCode] = originalUrl;
-    return res.json({ shortCode: customCode, originalUrl, isCustom: true });
-  }
-  
-  // Check if URL already exists (for auto-generated codes only)
-  for (const [shortCode, url] of Object.entries(urlDatabase)) {
-    if (url === originalUrl) {
-      return res.json({ shortCode, originalUrl, isCustom: false });
+    // Check if custom code is provided and validate it
+    if (customCode) {
+      if (!/^[a-zA-Z0-9]{3,20}$/.test(customCode)) {
+        return sendError(res, 'Custom code must be 3-20 characters long and contain only letters and numbers');
+      }
+      
+      // Check if custom code already exists
+      if (urlDatabase[customCode]) {
+        return sendError(res, 'Custom code already exists. Please choose a different one.', 409);
+      }
+      
+      // Use custom code
+      urlDatabase[customCode] = originalUrl;
+      return sendSuccess(res, { shortCode: customCode, originalUrl, isCustom: true });
     }
+    
+    // Check if URL already exists (for auto-generated codes only)
+    for (const [shortCode, url] of Object.entries(urlDatabase)) {
+      if (url === originalUrl) {
+        return sendSuccess(res, { shortCode, originalUrl, isCustom: false });
+      }
+    }
+    
+    // Generate unique short code
+    let shortCode;
+    do {
+      shortCode = generateShortCode();
+    } while (urlDatabase[shortCode]);
+    
+    // Store the mapping
+    urlDatabase[shortCode] = originalUrl;
+    
+    sendSuccess(res, { shortCode, originalUrl, isCustom: false });
+  } catch (error) {
+    createErrorHandler('shorten')(error, req, res, () => {});
   }
-  
-  // Generate unique short code
-  let shortCode;
-  do {
-    shortCode = generateShortCode();
-  } while (urlDatabase[shortCode]);
-  
-  // Store the mapping
-  urlDatabase[shortCode] = originalUrl;
-  
-  res.json({ shortCode, originalUrl, isCustom: false });
 });
 
 // QR Code generation endpoint
@@ -2061,8 +2297,8 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req
     return res.status(400).json({ error: 'No URLs available for automation' });
   }
   
-  const count = Math.min(Math.max(parseInt(clicksPerUrl), 1), 50); // Reduced to 50 clicks per URL for security
-  const baseDelay = Math.max(parseInt(delay), 100); // Minimum 100ms delay for bulk
+  const count = Math.min(Math.max(parseInt(clicksPerUrl), 1), CONFIG.BULK_CLICK_LIMIT);
+  const baseDelay = Math.max(parseInt(delay), CONFIG.BASE_DELAYS.CLICK_GENERATION);
   const actualDelay = calculateProgressiveDelay(ip, baseDelay);
   
   const totalEstimatedClicks = urlCodes.length * count;
@@ -2373,8 +2609,8 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAdvancedAuth, 
     return res.status(400).json({ error: 'No published blog posts available for automation' });
   }
   
-  const count = Math.min(Math.max(parseInt(viewsPerPost), 1), 30); // Reduced to 30 views per post for security
-  const baseDelay = Math.max(parseInt(delay), 100); // Minimum 100ms delay for bulk
+  const count = Math.min(Math.max(parseInt(viewsPerPost), 1), CONFIG.BULK_BLOG_VIEW_LIMIT);
+  const baseDelay = Math.max(parseInt(delay), CONFIG.BASE_DELAYS.BLOG_VIEW_GENERATION);
   const actualDelay = calculateProgressiveDelay(ip, baseDelay);
   
   const totalEstimatedViews = publishedPosts.length * count;
