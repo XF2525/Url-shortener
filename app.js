@@ -994,6 +994,7 @@ app.get('/admin/dashboard', (req, res) => {
             <h1>🛠️ Admin Dashboard</h1>
             <div>
                 <a href="/admin/blog" class="refresh-btn" style="background-color: #007bff; margin-right: 10px;">📝 Blog Management</a>
+                <button class="refresh-btn" onclick="showAutomation()" style="background-color: #ff6b6b; margin-right: 10px;">🤖 Automation</button>
                 <button class="refresh-btn" onclick="loadUrls()">Refresh</button>
                 <a href="/admin" class="logout-btn" onclick="logout()">Logout</a>
             </div>
@@ -1012,6 +1013,60 @@ app.get('/admin/dashboard', (req, res) => {
             <div class="stat-item">
                 <div class="stat-number" id="avgClicks">0</div>
                 <div>Avg Clicks/URL</div>
+            </div>
+        </div>
+
+        <!-- Automation Panel (Hidden by default) -->
+        <div class="container" id="automationPanel" style="display: none;">
+            <h2>🤖 Click Generation Automation <span style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">EXPERIMENTAL</span></h2>
+            <p style="color: #666; margin-bottom: 20px;">Generate automated test clicks for analytics testing and demonstration purposes.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333;">Single URL Automation</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Target URL:</label>
+                        <select id="automationShortCode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="">Select URL...</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Clicks:</label>
+                        <input type="number" id="clickCount" min="1" max="1000" value="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Delay (ms):</label>
+                        <input type="number" id="clickDelay" min="10" max="5000" value="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Minimum 10ms between clicks</small>
+                    </div>
+                    <button onclick="generateSingleClicks()" style="background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">🎯 Generate Clicks</button>
+                </div>
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #333;">Bulk Automation</h3>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Clicks per URL:</label>
+                        <input type="number" id="bulkClickCount" min="1" max="100" value="5" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Delay (ms):</label>
+                        <input type="number" id="bulkDelay" min="50" max="5000" value="200" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <small style="color: #666;">Minimum 50ms for bulk operations</small>
+                    </div>
+                    <div style="margin-bottom: 15px; padding: 10px; background-color: #e7f3ff; border-radius: 4px; font-size: 14px;">
+                        <strong>Bulk Target:</strong> All <span id="bulkUrlCount">0</span> URLs
+                    </div>
+                    <button onclick="generateBulkClicks()" style="background-color: #ff6b6b; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">⚡ Generate Bulk Clicks</button>
+                </div>
+            </div>
+            
+            <div id="automationStatus" style="background-color: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none;">
+                <h4 style="margin-top: 0;">Automation Status</h4>
+                <div id="statusMessage">Ready to start automation...</div>
+            </div>
+            
+            <div style="text-align: center;">
+                <button onclick="hideAutomation()" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Close Automation Panel</button>
             </div>
         </div>
 
@@ -1184,6 +1239,146 @@ app.get('/admin/dashboard', (req, res) => {
                 window.location.href = '/admin';
             }
 
+            // Show automation panel
+            function showAutomation() {
+                document.getElementById('automationPanel').style.display = 'block';
+                populateUrlDropdown();
+                updateBulkUrlCount();
+                document.getElementById('automationPanel').scrollIntoView({ behavior: 'smooth' });
+            }
+
+            // Hide automation panel
+            function hideAutomation() {
+                document.getElementById('automationPanel').style.display = 'none';
+            }
+
+            // Populate URL dropdown for automation
+            function populateUrlDropdown() {
+                const select = document.getElementById('automationShortCode');
+                select.innerHTML = '<option value="">Select URL...</option>';
+                
+                for (const [shortCode, originalUrl] of Object.entries(urlsData)) {
+                    const option = document.createElement('option');
+                    option.value = shortCode;
+                    option.textContent = \`\${shortCode} -> \${originalUrl.substring(0, 50)}\${originalUrl.length > 50 ? '...' : ''}\`;
+                    select.appendChild(option);
+                }
+            }
+
+            // Update bulk URL count
+            function updateBulkUrlCount() {
+                const count = Object.keys(urlsData).length;
+                document.getElementById('bulkUrlCount').textContent = count;
+            }
+
+            // Generate clicks for single URL
+            async function generateSingleClicks() {
+                const token = checkAuth();
+                if (!token) return;
+
+                const shortCode = document.getElementById('automationShortCode').value;
+                const clickCount = document.getElementById('clickCount').value;
+                const delay = document.getElementById('clickDelay').value;
+
+                if (!shortCode) {
+                    alert('Please select a URL first');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/admin/api/automation/generate-clicks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            shortCode: shortCode,
+                            clickCount: parseInt(clickCount),
+                            delay: parseInt(delay)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showAutomationStatus(\`✅ Started generating \${clickCount} clicks for \${shortCode}. This may take a few moments...\`);
+                        
+                        // Refresh data after a delay to show updated analytics
+                        setTimeout(() => {
+                            loadUrls();
+                            showAutomationStatus(\`✅ Completed! Generated \${clickCount} clicks for \${shortCode}. Analytics updated.\`);
+                        }, parseInt(delay) * parseInt(clickCount) + 2000);
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error generating clicks: ' + error.message);
+                }
+            }
+
+            // Generate bulk clicks for all URLs
+            async function generateBulkClicks() {
+                const token = checkAuth();
+                if (!token) return;
+
+                const clicksPerUrl = document.getElementById('bulkClickCount').value;
+                const delay = document.getElementById('bulkDelay').value;
+                const urlCount = Object.keys(urlsData).length;
+
+                if (urlCount === 0) {
+                    alert('No URLs available for bulk automation');
+                    return;
+                }
+
+                if (!confirm(\`This will generate \${clicksPerUrl} clicks for each of the \${urlCount} URLs (\${urlCount * clicksPerUrl} total clicks). Continue?\`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/admin/api/automation/generate-bulk-clicks', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            clicksPerUrl: parseInt(clicksPerUrl),
+                            delay: parseInt(delay)
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showAutomationStatus(\`⚡ Started bulk generation: \${clicksPerUrl} clicks per URL for \${urlCount} URLs. Total: \${data.estimatedTotal} clicks. This may take several minutes...\`);
+                        
+                        // Refresh data after estimated completion time
+                        const estimatedTime = urlCount * parseInt(clicksPerUrl) * parseInt(delay) + 5000;
+                        setTimeout(() => {
+                            loadUrls();
+                            showAutomationStatus(\`✅ Bulk automation completed! Generated approximately \${data.estimatedTotal} clicks. Analytics updated.\`);
+                        }, estimatedTime);
+                    } else if (response.status === 401) {
+                        logout();
+                    } else {
+                        const errorData = await response.json();
+                        alert('Error: ' + errorData.error);
+                    }
+                } catch (error) {
+                    alert('Error generating bulk clicks: ' + error.message);
+                }
+            }
+
+            // Show automation status
+            function showAutomationStatus(message) {
+                const statusDiv = document.getElementById('automationStatus');
+                const messageDiv = document.getElementById('statusMessage');
+                messageDiv.textContent = message;
+                statusDiv.style.display = 'block';
+            }
+
             // Load URLs when page loads
             window.onload = loadUrls;
         </script>
@@ -1246,6 +1441,144 @@ app.get('/admin/api/analytics/:shortCode', requireAuth, (req, res) => {
     shortCode,
     originalUrl: urlDatabase[shortCode],
     analytics
+  });
+});
+
+// ========================================
+// AUTOMATION FEATURES (ADMIN ONLY)
+// ========================================
+
+// Function to simulate a click for testing purposes
+function simulateClick(shortCode, userAgent = 'AutomationBot/1.0', ip = '127.0.0.1') {
+  if (!urlDatabase[shortCode]) {
+    return false;
+  }
+  
+  const mockReq = {
+    get: (header) => header === 'User-Agent' ? userAgent : 'Unknown',
+    ip: ip,
+    connection: { remoteAddress: ip }
+  };
+  
+  recordClick(shortCode, mockReq);
+  return true;
+}
+
+// Admin API endpoint for automated click generation
+app.post('/admin/api/automation/generate-clicks', requireAuth, (req, res) => {
+  const { shortCode, clickCount = 1, userAgents = [], delay = 100 } = req.body;
+  
+  if (!shortCode || !urlDatabase[shortCode]) {
+    return res.status(400).json({ error: 'Valid short code is required' });
+  }
+  
+  const count = Math.min(Math.max(parseInt(clickCount), 1), 1000); // Limit to 1000 clicks max
+  const delayMs = Math.max(parseInt(delay), 10); // Minimum 10ms delay
+  
+  const defaultUserAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
+    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
+  ];
+  
+  const agents = userAgents.length > 0 ? userAgents : defaultUserAgents;
+  let generated = 0;
+  
+  // Generate clicks with delay
+  const generateInterval = setInterval(() => {
+    if (generated >= count) {
+      clearInterval(generateInterval);
+      return;
+    }
+    
+    const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    
+    if (simulateClick(shortCode, randomAgent, randomIp)) {
+      generated++;
+    }
+    
+    if (generated >= count) {
+      clearInterval(generateInterval);
+    }
+  }, delayMs);
+  
+  res.json({ 
+    message: `Started generating ${count} clicks for ${shortCode}`,
+    shortCode,
+    clickCount: count,
+    delay: delayMs
+  });
+});
+
+// Admin API endpoint for bulk click generation on all URLs
+app.post('/admin/api/automation/generate-bulk-clicks', requireAuth, (req, res) => {
+  const { clicksPerUrl = 5, delay = 100 } = req.body;
+  
+  const urlCodes = Object.keys(urlDatabase);
+  if (urlCodes.length === 0) {
+    return res.status(400).json({ error: 'No URLs available for automation' });
+  }
+  
+  const count = Math.min(Math.max(parseInt(clicksPerUrl), 1), 100); // Limit to 100 clicks per URL
+  const delayMs = Math.max(parseInt(delay), 50); // Minimum 50ms delay for bulk
+  
+  const defaultUserAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
+    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
+  ];
+  
+  let totalGenerated = 0;
+  let currentUrlIndex = 0;
+  let clicksForCurrentUrl = 0;
+  
+  const generateInterval = setInterval(() => {
+    if (currentUrlIndex >= urlCodes.length) {
+      clearInterval(generateInterval);
+      return;
+    }
+    
+    const currentShortCode = urlCodes[currentUrlIndex];
+    const randomAgent = defaultUserAgents[Math.floor(Math.random() * defaultUserAgents.length)];
+    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    
+    if (simulateClick(currentShortCode, randomAgent, randomIp)) {
+      totalGenerated++;
+      clicksForCurrentUrl++;
+    }
+    
+    if (clicksForCurrentUrl >= count) {
+      currentUrlIndex++;
+      clicksForCurrentUrl = 0;
+    }
+  }, delayMs);
+  
+  res.json({ 
+    message: `Started bulk generation: ${count} clicks per URL for ${urlCodes.length} URLs`,
+    totalUrls: urlCodes.length,
+    clicksPerUrl: count,
+    estimatedTotal: urlCodes.length * count,
+    delay: delayMs
+  });
+});
+
+// Admin API endpoint to get automation statistics
+app.get('/admin/api/automation/stats', requireAuth, (req, res) => {
+  const totalUrls = Object.keys(urlDatabase).length;
+  const totalClicks = Object.values(urlAnalytics).reduce((sum, analytics) => sum + analytics.clicks, 0);
+  const urlsWithClicks = Object.values(urlAnalytics).filter(analytics => analytics.clicks > 0).length;
+  
+  res.json({
+    totalUrls,
+    totalClicks,
+    urlsWithClicks,
+    averageClicksPerUrl: totalUrls > 0 ? Math.round(totalClicks / totalUrls * 10) / 10 : 0,
+    urlsWithoutClicks: totalUrls - urlsWithClicks
   });
 });
 
