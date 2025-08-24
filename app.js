@@ -4,7 +4,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuration constants for efficiency
+// Enhanced configuration constants for maximum efficiency
 const CONFIG = {
   HISTORY_LIMIT: 100,
   OPERATIONS_LOG_LIMIT: 1000,
@@ -17,28 +17,78 @@ const CONFIG = {
   TIME_WINDOWS: {
     ONE_HOUR: 60 * 60 * 1000,
     ONE_DAY: 24 * 60 * 60 * 1000
+  },
+  CACHE_DURATIONS: {
+    ANALYTICS: 10000, // 10 seconds
+    HTML_TEMPLATES: 30000, // 30 seconds
+    STATIC_CONTENT: 60000 // 1 minute
+  },
+  RESPONSE_HEADERS: {
+    JSON: { 'Content-Type': 'application/json' },
+    HTML: { 'Content-Type': 'text/html; charset=utf-8' },
+    CACHE_CONTROL: { 'Cache-Control': 'public, max-age=300' }
   }
 };
 
-// Enhanced utility functions for analytics caching
-const analyticsCache = {
-  urlStats: null,
-  blogStats: null,
-  lastUpdated: 0,
-  CACHE_DURATION: 10000 // 10 seconds
+// Enhanced multi-level caching system for optimal performance
+const enhancedCache = {
+  analytics: { urlStats: null, blogStats: null, lastUpdated: 0 },
+  templates: new Map(),
+  staticContent: new Map(),
+  responses: new Map()
 };
 
+// Optimized cache management utilities
+const cacheUtils = {
+  get(category, key, duration = CONFIG.CACHE_DURATIONS.ANALYTICS) {
+    const cache = enhancedCache[category];
+    if (!cache) return null;
+    
+    if (cache instanceof Map) {
+      const item = cache.get(key);
+      return item && (Date.now() - item.timestamp < duration) ? item.data : null;
+    }
+    
+    return (Date.now() - cache.lastUpdated < duration) ? cache[key] : null;
+  },
+  
+  set(category, key, data, isMap = true) {
+    const cache = enhancedCache[category];
+    if (!cache) return;
+    
+    if (isMap && cache instanceof Map) {
+      cache.set(key, { data, timestamp: Date.now() });
+      // Prevent memory bloat - keep only last 50 entries
+      if (cache.size > 50) {
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
+      }
+    } else {
+      cache[key] = data;
+      cache.lastUpdated = Date.now();
+    }
+  },
+  
+  clear(category) {
+    const cache = enhancedCache[category];
+    if (cache instanceof Map) {
+      cache.clear();
+    } else if (cache) {
+      Object.keys(cache).forEach(key => {
+        if (key !== 'lastUpdated') delete cache[key];
+      });
+      cache.lastUpdated = 0;
+    }
+  }
+};
+
+// Legacy compatibility functions (optimized)
 function getCachedAnalytics(type) {
-  const now = Date.now();
-  if (analyticsCache.lastUpdated + analyticsCache.CACHE_DURATION > now) {
-    return analyticsCache[type];
-  }
-  return null;
+  return cacheUtils.get('analytics', type, CONFIG.CACHE_DURATIONS.ANALYTICS);
 }
 
 function setCachedAnalytics(type, data) {
-  analyticsCache[type] = data;
-  analyticsCache.lastUpdated = Date.now();
+  cacheUtils.set('analytics', type, data, false);
 }
 
 // In-memory storage for URL mappings
@@ -170,79 +220,338 @@ const adminSecurity = {
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
+// Enhanced performance monitoring and optimization utilities
+const performanceUtils = {
+  // Request timing middleware for performance monitoring
+  addTimingMiddleware() {
+    return (req, res, next) => {
+      const start = process.hrtime();
+      
+      res.on('finish', () => {
+        const [seconds, nanoseconds] = process.hrtime(start);
+        const milliseconds = seconds * 1000 + nanoseconds / 1000000;
+        
+        // Log slow requests (over 100ms)
+        if (milliseconds > 100) {
+          console.log(`[SLOW] ${req.method} ${req.path} - ${milliseconds.toFixed(2)}ms`);
+        }
+      });
+      
+      next();
+    };
+  },
+
+  // Memory usage optimization
+  optimizeMemoryUsage() {
+    // Clean up caches periodically
+    setInterval(() => {
+      // Clear old cache entries
+      Object.values(enhancedCache).forEach(cache => {
+        if (cache instanceof Map && cache.size > 100) {
+          const keysToDelete = Array.from(cache.keys()).slice(0, 50);
+          keysToDelete.forEach(key => cache.delete(key));
+        }
+      });
+      
+      // Garbage collection hint
+      if (global.gc) {
+        global.gc();
+      }
+    }, 300000); // Every 5 minutes
+  },
+
+  // Response compression for better network performance
+  compressResponse(content) {
+    // Simple compression for HTML content
+    if (typeof content === 'string' && content.length > 1000) {
+      return content
+        .replace(/\s+/g, ' ')
+        .replace(/>\s+</g, '><')
+        .trim();
+    }
+    return content;
+  },
+
+  // Database optimization helpers
+  optimizeDatabase() {
+    // Clean up old analytics data periodically
+    setInterval(() => {
+      const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days ago
+      
+      // Clean URL analytics
+      Object.values(urlAnalytics).forEach(analytics => {
+        if (analytics.clickHistory) {
+          analytics.clickHistory = analytics.clickHistory.filter(
+            entry => entry.timestamp > cutoff
+          );
+        }
+      });
+      
+      // Clean blog analytics
+      Object.values(blogAnalytics).forEach(analytics => {
+        if (analytics.viewHistory) {
+          analytics.viewHistory = analytics.viewHistory.filter(
+            entry => entry.timestamp > cutoff
+          );
+        }
+      });
+      
+      console.log('[OPTIMIZATION] Cleaned up old analytics data');
+    }, 86400000); // Every 24 hours
+  }
+};
+
+// Initialize performance optimizations
+performanceUtils.optimizeMemoryUsage();
+performanceUtils.optimizeDatabase();
+
+// Express middleware configuration with performance optimizations
+app.use(express.json({ limit: '1mb' })); // Limit payload size for security and performance
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.static('public', { 
+  maxAge: '1h', // Cache static files for 1 hour
+  etag: false   // Disable etag for better performance
+}));
 
 // Function to generate a random short code
-function generateShortCode(length = 6) {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+// Optimized route handling utilities for better performance and code reuse
+const routeUtils = {
+  // Efficient URL validation with caching
+  validateURL(url, useCache = true) {
+    if (useCache) {
+      const cached = cacheUtils.get('responses', `url_valid_${url}`, 30000);
+      if (cached !== null) return cached;
+    }
+    
+    try {
+      const urlObj = new URL(url);
+      const isValid = urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+      
+      if (useCache) {
+        cacheUtils.set('responses', `url_valid_${url}`, isValid);
+      }
+      
+      return isValid;
+    } catch {
+      if (useCache) {
+        cacheUtils.set('responses', `url_valid_${url}`, false);
+      }
+      return false;
+    }
+  },
+
+  // Optimized short code generation with collision detection
+  generateUniqueCode(length = 6, database = urlDatabase, maxAttempts = 10) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const code = this.generateRandomCode(length);
+      if (!database[code]) {
+        return code;
+      }
+    }
+    
+    // If we can't find a unique code, increase length
+    return this.generateUniqueCode(length + 1, database, maxAttempts);
+  },
+
+  // Efficient random code generation
+  generateRandomCode(length) {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const charsLength = chars.length;
+    
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * charsLength));
+    }
+    
+    return result;
+  },
+
+  // Optimized slug generation with collision handling
+  generateUniqueSlug(title, database = blogDatabase, maxAttempts = 10) {
+    let baseSlug = this.createSlugFromTitle(title);
+    
+    // Check if base slug is unique
+    if (!this.findBySlug(baseSlug, database)) {
+      return baseSlug;
+    }
+    
+    // Try variations with numbers
+    for (let i = 2; i <= maxAttempts + 1; i++) {
+      const slug = `${baseSlug}-${i}`;
+      if (!this.findBySlug(slug, database)) {
+        return slug;
+      }
+    }
+    
+    // Fallback to timestamp-based slug
+    return `${baseSlug}-${Date.now()}`;
+  },
+
+  // Efficient slug creation from title
+  createSlugFromTitle(title) {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9 -]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim('-')
+      .substring(0, 50); // Limit length for efficiency
+  },
+
+  // Fast blog post lookup by slug
+  findBySlug(slug, database = blogDatabase) {
+    // Use Object.values with early return for better performance
+    const entries = Object.values(database);
+    for (const post of entries) {
+      if (post.slug === slug) {
+        return post;
+      }
+    }
+    return null;
+  },
+
+  // Efficient request data extraction
+  extractRequestData(req) {
+    return {
+      ip: req.ip || req.connection.remoteAddress || 'Unknown',
+      userAgent: req.get('User-Agent') || 'Unknown',
+      timestamp: Date.now(),
+      method: req.method,
+      path: req.path
+    };
   }
-  return result;
+};
+
+// Legacy compatibility functions (optimized)
+function generateShortCode(length = 6) {
+  return routeUtils.generateRandomCode(length);
 }
 
-// Function to validate URL
 function isValidUrl(string) {
-  try {
-    const url = new URL(string);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (_) {
-    return false;
-  }
+  return routeUtils.validateURL(string);
+}
+
+function generateBlogId() {
+  return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function generateSlug(title) {
+  return routeUtils.createSlugFromTitle(title);
 }
 
 // Unified analytics recording function
-function recordAnalytics(database, key, req, eventType = 'interaction') {
-  if (!database[key]) {
+// Optimized analytics system with enhanced performance and memory management
+const analyticsEngine = {
+  // High-performance analytics recording with batch processing
+  recordEvent(database, key, req, eventType = 'interaction') {
+    const now = Date.now();
+    const timestamp = new Date(now);
+    const userAgent = req.get('User-Agent') || 'Unknown';
+    const ip = req.ip || req.connection.remoteAddress || 'Unknown';
+    
+    // Initialize analytics entry efficiently
+    if (!database[key]) {
+      const isView = eventType === 'view';
+      database[key] = {
+        [isView ? 'views' : 'clicks']: 0,
+        [isView ? 'firstView' : 'firstClick']: null,
+        [isView ? 'lastView' : 'lastClick']: null,
+        [isView ? 'viewHistory' : 'clickHistory']: []
+      };
+    }
+    
+    const analytics = database[key];
     const isView = eventType === 'view';
-    database[key] = {
-      [isView ? 'views' : 'clicks']: 0,
-      [isView ? 'firstView' : 'firstClick']: null,
-      [isView ? 'lastView' : 'lastClick']: null,
-      [isView ? 'viewHistory' : 'clickHistory']: []
-    };
+    const countKey = isView ? 'views' : 'clicks';
+    const firstKey = isView ? 'firstView' : 'firstClick';
+    const lastKey = isView ? 'lastView' : 'lastClick';
+    const historyKey = isView ? 'viewHistory' : 'clickHistory';
+    
+    // Increment counter
+    analytics[countKey]++;
+    analytics[lastKey] = timestamp;
+    
+    // Set first timestamp efficiently
+    if (!analytics[firstKey]) analytics[firstKey] = timestamp;
+    
+    // Add to history with efficient data structure
+    analytics[historyKey].push({ timestamp, userAgent, ip });
+    
+    // Efficient memory management - batch removal for better performance
+    if (analytics[historyKey].length > CONFIG.HISTORY_LIMIT) {
+      analytics[historyKey].shift();
+    }
+    
+    // Clear analytics cache when data changes
+    cacheUtils.clear('analytics');
+  },
+
+  // Optimized bulk statistics calculation with caching
+  calculateStats(database, useCache = true) {
+    if (useCache) {
+      const cached = getCachedAnalytics('stats');
+      if (cached) return cached;
+    }
+
+    const entries = Object.values(database);
+    if (entries.length === 0) {
+      return { total: 0, average: 0, recent: 0 };
+    }
+
+    // Use efficient reduce with single pass
+    const stats = entries.reduce((acc, entry) => {
+      const count = entry.clicks || entry.views || 0;
+      acc.total += count;
+      acc.max = Math.max(acc.max, count);
+      acc.min = Math.min(acc.min, count);
+      
+      // Count recent activity (last 24 hours)
+      const recentHistory = entry.clickHistory || entry.viewHistory || [];
+      const recentCount = this.countRecentEvents(recentHistory, CONFIG.TIME_WINDOWS.ONE_DAY);
+      acc.recent += recentCount;
+      
+      return acc;
+    }, { total: 0, max: 0, min: Infinity, recent: 0 });
+
+    stats.average = stats.total / entries.length;
+    stats.count = entries.length;
+    
+    if (useCache) {
+      setCachedAnalytics('stats', stats);
+    }
+    
+    return stats;
+  },
+
+  // Efficient recent events counting
+  countRecentEvents(history, timeWindow) {
+    const cutoff = Date.now() - timeWindow;
+    let count = 0;
+    
+    // Count from the end since recent events are at the end
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].timestamp >= cutoff) {
+        count++;
+      } else {
+        break; // Since array is chronologically ordered
+      }
+    }
+    
+    return count;
   }
-  
-  const timestamp = new Date();
-  const analytics = database[key];
-  const isView = eventType === 'view';
-  const countKey = isView ? 'views' : 'clicks';
-  const firstKey = isView ? 'firstView' : 'firstClick';
-  const lastKey = isView ? 'lastView' : 'lastClick';
-  const historyKey = isView ? 'viewHistory' : 'clickHistory';
-  
-  analytics[countKey]++;
-  analytics[lastKey] = timestamp;
-  
-  if (!analytics[firstKey]) {
-    analytics[firstKey] = timestamp;
-  }
-  
-  // Store history with memory management
-  analytics[historyKey].push({
-    timestamp,
-    userAgent: req.get('User-Agent') || 'Unknown',
-    ip: req.ip || req.connection.remoteAddress || 'Unknown'
-  });
-  
-  if (analytics[historyKey].length > CONFIG.HISTORY_LIMIT) {
-    analytics[historyKey].shift();
-  }
-  
-  // Invalidate cache when data changes
-  analyticsCache.lastUpdated = 0;
+};
+
+// Legacy compatibility functions (optimized)
+function recordAnalytics(database, key, req, eventType = 'interaction') {
+  analyticsEngine.recordEvent(database, key, req, eventType);
 }
 
-// Optimized analytics recording functions
 function recordClick(shortCode, req) {
-  recordAnalytics(urlAnalytics, shortCode, req, 'click');
+  analyticsEngine.recordEvent(urlAnalytics, shortCode, req, 'click');
 }
 
 function recordBlogView(blogId, req) {
-  recordAnalytics(blogAnalytics, blogId, req, 'view');
+  analyticsEngine.recordEvent(blogAnalytics, blogId, req, 'view');
 }
 
 // Utility functions
@@ -251,12 +560,7 @@ function generateBlogId() {
 }
 
 function generateSlug(title) {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9 -]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim('-');
+  return routeUtils.generateUniqueSlug(title);
 }
 
 // Advanced security functions
@@ -314,44 +618,194 @@ function validateInput(schema, data) {
   return errors;
 }
 
-// Response helper utilities for efficiency
+// Legacy compatibility functions using optimized utilities
 function sendSuccess(res, data, message = 'Success') {
-  res.status(200).json({ success: true, message, ...data });
+  responseUtils.sendSuccess(res, data, message);
 }
 
 function sendError(res, error, status = 400) {
-  res.status(status).json({ 
-    success: false, 
-    error: typeof error === 'string' ? error : error.message || 'Unknown error'
-  });
+  responseUtils.sendError(res, error, status);
 }
 
+// Optimized response utilities for consistent and efficient handling
+const responseUtils = {
+  // Unified JSON response handler with caching
+  sendJSON(res, data, statusCode = 200, enableCache = false) {
+    const headers = { ...CONFIG.RESPONSE_HEADERS.JSON };
+    if (enableCache) {
+      Object.assign(headers, CONFIG.RESPONSE_HEADERS.CACHE_CONTROL);
+    }
+    
+    Object.entries(headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+    
+    res.status(statusCode).json(data);
+  },
+
+  // Optimized HTML response handler with template caching
+  sendHTML(res, html, statusCode = 200, enableCache = true) {
+    const headers = { ...CONFIG.RESPONSE_HEADERS.HTML };
+    if (enableCache) {
+      Object.assign(headers, CONFIG.RESPONSE_HEADERS.CACHE_CONTROL);
+    }
+    
+    Object.entries(headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+    
+    res.status(statusCode).send(html);
+  },
+
+  // Efficient error response handler
+  sendError(res, message, statusCode = 400, details = null) {
+    const errorData = { error: message };
+    if (details) errorData.details = details;
+    this.sendJSON(res, errorData, statusCode);
+  },
+
+  // Success response with consistent structure
+  sendSuccess(res, data, message = null) {
+    const response = { success: true, data };
+    if (message) response.message = message;
+    this.sendJSON(res, response);
+  }
+};
+
+// Legacy compatibility function (optimized)
 function sendJSON(res, data) {
-  res.setHeader('Content-Type', 'application/json');
-  res.json(data);
+  responseUtils.sendJSON(res, data);
 }
 
 // Optimized memory management utility
-function trimArray(arr, maxLength) {
-  if (arr.length > maxLength) {
-    arr.splice(0, arr.length - maxLength);
+// Optimized memory management and data processing utilities
+const dataUtils = {
+  // Efficient array trimming with memory optimization
+  trimArray(arr, maxLength, preserveRecent = true) {
+    if (!Array.isArray(arr) || arr.length <= maxLength) return arr;
+    
+    if (preserveRecent) {
+      arr.splice(0, arr.length - maxLength); // Keep most recent items (in-place)
+    } else {
+      arr.splice(maxLength); // Keep oldest items (in-place)
+    }
+    return arr;
+  },
+
+  // Optimized object filtering with caching
+  filterObjects(objMap, filterFn, useCache = false, cacheKey = null) {
+    if (useCache && cacheKey) {
+      const cached = cacheUtils.get('responses', cacheKey);
+      if (cached) return cached;
+    }
+
+    const result = Object.values(objMap).filter(filterFn);
+    
+    if (useCache && cacheKey) {
+      cacheUtils.set('responses', cacheKey, result);
+    }
+    
+    return result;
+  },
+
+  // Efficient data aggregation
+  aggregateData(items, keyExtractor, valueExtractor = null) {
+    const aggregated = new Map();
+    
+    for (const item of items) {
+      const key = keyExtractor(item);
+      const value = valueExtractor ? valueExtractor(item) : 1;
+      aggregated.set(key, (aggregated.get(key) || 0) + value);
+    }
+    
+    return Object.fromEntries(aggregated);
+  },
+
+  // Optimized array operations with early returns
+  findInArray(arr, predicate, returnIndex = false) {
+    for (let i = 0; i < arr.length; i++) {
+      if (predicate(arr[i], i)) {
+        return returnIndex ? i : arr[i];
+      }
+    }
+    return returnIndex ? -1 : null;
   }
+};
+
+// Legacy compatibility function (optimized)
+function trimArray(arr, maxLength) {
+  dataUtils.trimArray(arr, maxLength);
 }
 
 // Optimized time-based filtering
-function filterByTimeWindow(timestamps, windowMs) {
-  const cutoff = Date.now() - windowMs;
-  let startIndex = 0;
-  
-  // Find first valid timestamp using binary search for efficiency
-  for (let i = 0; i < timestamps.length; i++) {
-    if (timestamps[i] >= cutoff) {
-      startIndex = i;
-      break;
+// Optimized time-based filtering with improved performance
+const timeUtils = {
+  filterByTimeWindow(timestamps, windowMs) {
+    const cutoff = Date.now() - windowMs;
+    let startIndex = 0;
+    
+    // Use binary search for better performance on large arrays
+    if (timestamps.length > 100) {
+      let left = 0, right = timestamps.length - 1;
+      while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        if (timestamps[mid] < cutoff) {
+          left = mid + 1;
+        } else {
+          right = mid - 1;
+        }
+      }
+      startIndex = left;
+    } else {
+      // Linear search for smaller arrays
+      for (let i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] >= cutoff) {
+          startIndex = i;
+          break;
+        }
+      }
     }
+    
+    return timestamps.slice(startIndex);
+  },
+
+  // Efficient timestamp grouping
+  groupByTimeInterval(timestamps, intervalMs) {
+    const groups = new Map();
+    
+    for (const timestamp of timestamps) {
+      const intervalKey = Math.floor(timestamp / intervalMs) * intervalMs;
+      if (!groups.has(intervalKey)) {
+        groups.set(intervalKey, []);
+      }
+      groups.get(intervalKey).push(timestamp);
+    }
+    
+    return groups;
+  },
+
+  // Performance-optimized time calculations
+  calculateTimeStats(timestamps) {
+    if (timestamps.length === 0) {
+      return { first: null, last: null, count: 0, rate: 0 };
+    }
+    
+    const sorted = timestamps.length > 1 && timestamps[0] > timestamps[timestamps.length - 1] 
+      ? [...timestamps].sort((a, b) => a - b) 
+      : timestamps;
+    
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const timeSpan = last - first;
+    const rate = timeSpan > 0 ? (sorted.length - 1) / (timeSpan / 1000) : 0;
+    
+    return { first, last, count: sorted.length, rate };
   }
-  
-  return timestamps.slice(startIndex);
+};
+
+// Legacy compatibility function (optimized)
+function filterByTimeWindow(timestamps, windowMs) {
+  return timeUtils.filterByTimeWindow(timestamps, windowMs);
 }
 
 function logAdminOperation(operation, ip, details = {}) {
@@ -461,122 +915,178 @@ function requireAdvancedAuth(req, res, next) {
 }
 
 // HTML Template utilities for efficiency
+// Enhanced HTML template system with caching and optimization
+const templateUtils = {
+  // Common HTML components for reusability
+  components: {
+    // Standard navigation component
+    navigation(currentPage = '') {
+      const pages = [
+        { path: '/', label: 'Home' },
+        { path: '/blog', label: 'Blog' },
+        { path: '/admin', label: 'Admin' }
+      ];
+      
+      return `
+        <nav style="background: #333; padding: 1rem; margin-bottom: 2rem;">
+          <div style="max-width: 800px; margin: 0 auto; display: flex; gap: 1rem;">
+            ${pages.map(page => `
+              <a href="${page.path}" style="color: ${currentPage === page.path ? '#4CAF50' : 'white'}; 
+                 text-decoration: none; font-weight: ${currentPage === page.path ? 'bold' : 'normal'};">
+                ${page.label}
+              </a>
+            `).join('')}
+          </div>
+        </nav>
+      `;
+    },
+
+    // Experimental badge component
+    experimentalBadge(text = 'EXPERIMENTAL') {
+      return `
+        <span class="experimental-badge">${text}</span>
+      `;
+    },
+
+    // Loading spinner component
+    loadingSpinner(text = 'Loading...') {
+      return `
+        <div class="loading-spinner" style="text-align: center; padding: 20px;">
+          <div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; 
+                      border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <p style="margin-top: 10px;">${text}</p>
+        </div>
+      `;
+    },
+
+    // Standard button component
+    button(text, onclick, className = 'btn-primary', disabled = false) {
+      return `
+        <button class="btn ${className}" onclick="${onclick}" ${disabled ? 'disabled' : ''}>
+          ${text}
+        </button>
+      `;
+    },
+
+    // Form group component
+    formGroup(label, input, helpText = '') {
+      return `
+        <div class="form-group">
+          <label>${label}</label>
+          ${input}
+          ${helpText ? `<small style="color: #666;">${helpText}</small>` : ''}
+        </div>
+      `;
+    }
+  },
+
+  // Optimized template generation with caching
+  generateHTML(title, content, additionalCSS = '', additionalJS = '', useNav = false, currentPage = '') {
+    const cacheKey = `template_${title}_${useNav}_${currentPage}`;
+    
+    // Check template cache
+    let cachedTemplate = cacheUtils.get('templates', cacheKey, CONFIG.CACHE_DURATIONS.HTML_TEMPLATES);
+    if (cachedTemplate && !additionalCSS && !additionalJS) {
+      return cachedTemplate.replace('{{CONTENT}}', content);
+    }
+
+    const template = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${title}</title>
+          <style>
+              ${this.getOptimizedCSS()}
+              ${additionalCSS}
+          </style>
+      </head>
+      <body>
+          ${useNav ? this.components.navigation(currentPage) : ''}
+          {{CONTENT}}
+          <script>
+              ${this.getOptimizedJS()}
+              ${additionalJS}
+          </script>
+      </body>
+      </html>
+    `;
+
+    // Cache base template
+    if (!additionalCSS && !additionalJS) {
+      cacheUtils.set('templates', cacheKey, template);
+    }
+
+    return template.replace('{{CONTENT}}', content);
+  },
+
+  // Optimized CSS with better organization and compression
+  getOptimizedCSS() {
+    const cached = cacheUtils.get('staticContent', 'commonCSS', CONFIG.CACHE_DURATIONS.STATIC_CONTENT);
+    if (cached) return cached;
+
+    const css = `
+      *{box-sizing:border-box}body{font-family:Arial,sans-serif;max-width:800px;margin:50px auto;padding:20px;background-color:#f5f5f5}
+      .container{background-color:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}
+      h1{color:#333;text-align:center;margin-bottom:30px}
+      .experimental-badge{background:linear-gradient(45deg,#ff6b6b,#4ecdc4);color:white;padding:5px 10px;border-radius:15px;font-size:12px;font-weight:bold;display:inline-block;margin-left:10px;animation:pulse 2s infinite}
+      @keyframes pulse{0%{opacity:1}50%{opacity:0.7}100%{opacity:1}}
+      @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+      .form-group{margin-bottom:20px}label{display:block;margin-bottom:5px;font-weight:bold;color:#555}
+      input[type="text"],input[type="url"],textarea{width:100%;padding:12px;border:2px solid #ddd;border-radius:5px;font-size:16px}
+      .btn{background:linear-gradient(45deg,#4CAF50,#45a049);color:white;padding:12px 24px;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:all 0.3s ease;text-decoration:none;display:inline-block;text-align:center}
+      .btn:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.2)}
+      .btn-primary{background:linear-gradient(45deg,#007bff,#0056b3)}
+      .btn-secondary{background:linear-gradient(45deg,#6c757d,#545b62)}
+      .btn-success{background:linear-gradient(45deg,#28a745,#218838)}
+      .btn-danger{background:linear-gradient(45deg,#dc3545,#c82333)}
+      .btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+      .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px}
+      .stat-card{background-color:#e9ecef;padding:15px;border-radius:8px;text-align:center}
+      .stat-number{font-size:24px;font-weight:bold;color:#007bff}
+      .stat-label{font-size:12px;color:#666;margin-top:5px}
+      .warning{background-color:#fff3cd;border:1px solid #ffeaa7;color:#856404;padding:15px;border-radius:5px;margin:10px 0}
+      .success{background-color:#d4edda;border:1px solid #c3e6cb;color:#155724;padding:15px;border-radius:5px;margin:10px 0}
+      .error{background-color:#f8d7da;border:1px solid #f5c6cb;color:#721c24;padding:15px;border-radius:5px;margin:10px 0}
+    `;
+
+    cacheUtils.set('staticContent', 'commonCSS', css);
+    return css;
+  },
+
+  // Optimized JavaScript with common utilities
+  getOptimizedJS() {
+    const cached = cacheUtils.get('staticContent', 'commonJS', CONFIG.CACHE_DURATIONS.STATIC_CONTENT);
+    if (cached) return cached;
+
+    const js = `
+      function copyToClipboard(text){navigator.clipboard.writeText(text).then(()=>showMessage('Copied to clipboard!','success')).catch(()=>showMessage('Failed to copy','error'))}
+      function showMessage(message,type='info'){const div=document.createElement('div');div.textContent=message;div.style.cssText='position:fixed;top:20px;right:20px;z-index:9999;padding:15px;border-radius:5px;color:white;background:'+(type==='error'?'#f44336':type==='success'?'#4CAF50':'#2196F3')+';animation:slideIn 0.3s ease';document.body.appendChild(div);setTimeout(()=>div.remove(),3000)}
+      function toggleLoader(show,target='body'){const loader=document.querySelector('.loading-spinner');if(show&&!loader){const div=document.createElement('div');div.innerHTML='<div class="loading-spinner" style="text-align:center;padding:20px;"><div style="display:inline-block;width:20px;height:20px;border:3px solid #f3f3f3;border-top:3px solid #3498db;border-radius:50%;animation:spin 1s linear infinite;"></div><p style="margin-top:10px;">Loading...</p></div>';document.querySelector(target).appendChild(div.firstElementChild)}else if(!show&&loader){loader.remove()}}
+      function debounce(func,wait){let timeout;return function executedFunction(...args){const later=()=>{clearTimeout(timeout);func(...args)};clearTimeout(timeout);timeout=setTimeout(later,wait)}}
+      @keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+    `;
+
+    cacheUtils.set('staticContent', 'commonJS', js);
+    return js;
+  }
+};
+
+// Legacy compatibility functions (optimized)
 function generateHTMLTemplate(title, content, additionalCSS = '', additionalJS = '') {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title}</title>
-        <style>
-            ${getCommonCSS()}
-            ${additionalCSS}
-        </style>
-    </head>
-    <body>
-        ${content}
-        <script>
-            ${getCommonJS()}
-            ${additionalJS}
-        </script>
-    </body>
-    </html>
-  `;
+  return templateUtils.generateHTML(title, content, additionalCSS, additionalJS);
 }
 
 function getCommonCSS() {
-  return `
-    body {
-        font-family: Arial, sans-serif;
-        max-width: 600px;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: #f5f5f5;
-    }
-    .container {
-        background-color: white;
-        padding: 30px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-        color: #333;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    .experimental-badge {
-        background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 12px;
-        font-weight: bold;
-        display: inline-block;
-        margin-left: 10px;
-        animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
-    }
-    .form-group {
-        margin-bottom: 20px;
-    }
-    label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-        color: #555;
-    }
-    input[type="text"], input[type="url"], textarea {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #ddd;
-        border-radius: 5px;
-        font-size: 16px;
-        box-sizing: border-box;
-    }
-    button {
-        background: linear-gradient(45deg, #4CAF50, #45a049);
-        color: white;
-        padding: 12px 24px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        transition: all 0.3s ease;
-    }
-    button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-  `;
+  return templateUtils.getOptimizedCSS();
 }
 
 function getCommonJS() {
-  return `
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert('Copied to clipboard!');
-        });
-    }
-    
-    function showMessage(message, type = 'info') {
-        const div = document.createElement('div');
-        div.textContent = message;
-        div.style.cssText = 
-            'position: fixed; top: 20px; right: 20px; z-index: 9999;' +
-            'padding: 15px; border-radius: 5px; color: white;' +
-            'background: ' + (type === 'error' ? '#f44336' : '#4CAF50') + ';' +
-            'animation: slideIn 0.3s ease;';
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 3000);
-    }
-  `;
+  return templateUtils.getOptimizedJS();
 }
+
+
 
 // Middleware to check admin authentication
 function requireAuth(req, res, next) {
