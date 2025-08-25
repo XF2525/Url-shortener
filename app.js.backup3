@@ -1445,16 +1445,13 @@ app.get('/', (req, res) => {
                     error: '❌'
                 };
                 
-                let html = '';
-                for (let i = 0; i < announcements.length; i++) {
-                    const announcement = announcements[i];
-                    html += '<div class="announcement-banner announcement-' + announcement.type + '">' +
-                            '<div class="announcement-title">' + typeIcons[announcement.type] + ' ' + announcement.title + '</div>' +
-                            '<div>' + announcement.message + '</div>' +
-                            '</div>';
-                }
+                announcementsSection.innerHTML = announcements.map(function(announcement) {
+                    return "<div class=\"announcement-banner announcement-" + announcement.type + "\">"
+                        + "<div class=\"announcement-title\">" + typeIcons[announcement.type] + " " + announcement.title + "</div>"
+                        + "<div>" + announcement.message + "</div>"
+                        + "</div>";
+                }).join("");
                 
-                announcementsSection.innerHTML = html;
                 announcementsSection.style.display = 'block';
             }
             
@@ -2310,7 +2307,7 @@ app.get('/admin/dashboard', (req, res) => {
             try {
                 const token = localStorage.getItem('adminToken');
                 const response = await fetch('/admin/api/announcements', {
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
                 if (response.ok) {
@@ -2333,13 +2330,9 @@ app.get('/admin/dashboard', (req, res) => {
                 return;
             }
 
-            const announcementsArray = Object.values(announcements).sort(function(a, b) {
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            });
+            const announcementsArray = Object.values(announcements).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             
-            let html = '';
-            for (let i = 0; i < announcementsArray.length; i++) {
-                const announcement = announcementsArray[i];
+            announcementsList.innerHTML = announcementsArray.map(announcement => {
                 const typeColors = {
                     info: '#007bff',
                     success: '#28a745',
@@ -2354,39 +2347,30 @@ app.get('/admin/dashboard', (req, res) => {
                     error: '❌'
                 };
                 
-                html += '<div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: ' + 
-                        (announcement.enabled ? '#f8f9fa' : '#f1f1f1') + ';">' +
-                        '<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">' +
-                        '<div style="flex: 1;">' +
-                        '<h4 style="margin: 0 0 5px 0; color: ' + typeColors[announcement.type] + ';">' + 
-                        typeIcons[announcement.type] + ' ' + announcement.title + '</h4>' +
-                        '<p style="margin: 0; color: #666; font-size: 14px;">Created: ' + 
-                        new Date(announcement.createdAt).toLocaleString() + '</p>' +
-                        '</div>' +
-                        '<div style="display: flex; gap: 5px;">' +
-                        '<button onclick="toggleAnnouncement(\'' + announcement.id + '\')" ' +
-                        'style="background: ' + (announcement.enabled ? '#ffc107' : '#28a745') + 
-                        '; color: ' + (announcement.enabled ? '#000' : '#fff') + 
-                        '; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">' +
-                        (announcement.enabled ? 'Disable' : 'Enable') + '</button>' +
-                        '<button onclick="deleteAnnouncement(\'' + announcement.id + '\')" ' +
-                        'style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>' +
-                        '</div>' +
-                        '</div>' +
-                        '<div style="padding: 10px; background: white; border-radius: 4px; border-left: 4px solid ' + 
-                        typeColors[announcement.type] + ';">' +
-                        '<p style="margin: 0; color: #333;">' + announcement.message + '</p>' +
-                        '</div>' +
-                        '<div style="margin-top: 8px; font-size: 12px; color: #666;">' +
-                        'Status: <span style="color: ' + (announcement.enabled ? '#28a745' : '#dc3545') + 
-                        '; font-weight: bold;">' + (announcement.enabled ? 'ACTIVE' : 'DISABLED') + '</span>' +
-                        ' | Type: <span style="color: ' + typeColors[announcement.type] + 
-                        '; font-weight: bold;">' + announcement.type.toUpperCase() + '</span>' +
-                        '</div>' +
-                        '</div>';
-            }
-            
-            announcementsList.innerHTML = html;
+                return `
+                    <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: ${announcement.enabled ? '#f8f9fa' : '#f1f1f1'};">
+                        <div style="display: flex; justify-content: between; align-items: flex-start; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0 0 5px 0; color: ${typeColors[announcement.type]};">${typeIcons[announcement.type]} ${announcement.title}</h4>
+                                <p style="margin: 0; color: #666; font-size: 14px;">Created: ${new Date(announcement.createdAt).toLocaleString()}</p>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="toggleAnnouncement('${announcement.id}')" style="background: ${announcement.enabled ? '#ffc107' : '#28a745'}; color: ${announcement.enabled ? '#000' : '#fff'}; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    ${announcement.enabled ? 'Disable' : 'Enable'}
+                                </button>
+                                <button onclick="deleteAnnouncement('${announcement.id}')" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>
+                            </div>
+                        </div>
+                        <div style="padding: 10px; background: white; border-radius: 4px; border-left: 4px solid ${typeColors[announcement.type]};">
+                            <p style="margin: 0; color: #333;">${announcement.message}</p>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                            Status: <span style="color: ${announcement.enabled ? '#28a745' : '#dc3545'}; font-weight: bold;">${announcement.enabled ? 'ACTIVE' : 'DISABLED'}</span>
+                            | Type: <span style="color: ${typeColors[announcement.type]}; font-weight: bold;">${announcement.type.toUpperCase()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         async function createAnnouncement() {
@@ -2405,9 +2389,9 @@ app.get('/admin/dashboard', (req, res) => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + token
+                        'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ title: title, message: message, type: type })
+                    body: JSON.stringify({ title, message, type })
                 });
 
                 if (response.ok) {
@@ -2427,9 +2411,9 @@ app.get('/admin/dashboard', (req, res) => {
         async function toggleAnnouncement(id) {
             try {
                 const token = localStorage.getItem('adminToken');
-                const response = await fetch('/admin/api/announcements/' + id + '/toggle', {
+                const response = await fetch(`/admin/api/announcements/${id}/toggle`, {
                     method: 'PUT',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (response.ok) {
@@ -2450,9 +2434,9 @@ app.get('/admin/dashboard', (req, res) => {
 
             try {
                 const token = localStorage.getItem('adminToken');
-                const response = await fetch('/admin/api/announcements/' + id, {
+                const response = await fetch(`/admin/api/announcements/${id}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (response.ok) {
@@ -3809,9 +3793,51 @@ app.get('/blog', (req, res) => {
                 font-size: 12px;
                 color: #666;
             }
+            .announcement-banner {
+                margin-bottom: 20px;
+                padding: 12px 16px;
+                border-radius: 8px;
+                border-left: 4px solid;
+                font-size: 14px;
+                line-height: 1.4;
+                animation: slideIn 0.5s ease-out;
+            }
+            .announcement-info {
+                background-color: #d1ecf1;
+                border-left-color: #007bff;
+                color: #0c5460;
+            }
+            .announcement-success {
+                background-color: #d4edda;
+                border-left-color: #28a745;
+                color: #155724;
+            }
+            .announcement-warning {
+                background-color: #fff3cd;
+                border-left-color: #ffc107;
+                color: #856404;
+            }
+            .announcement-error {
+                background-color: #f8d7da;
+                border-left-color: #dc3545;
+                color: #721c24;
+            }
+            .announcement-title {
+                font-weight: bold;
+                margin-bottom: 4px;
+            }
+            @keyframes slideIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
         </style>
     </head>
     <body>
+        <!-- Announcements Section (for visitors only) -->
+        <div id="announcementsSection" style="display: none;">
+            <!-- Announcements will be loaded here -->
+        </div>
+        
         <div class="header">
             <h1>📝 Blog<span class="experimental-badge">EXPERIMENTAL</span></h1>
             <p>Welcome to our experimental blog featuring insights, tips, and stories!</p>
@@ -3843,6 +3869,56 @@ app.get('/blog', (req, res) => {
                 </article>
             `;
         }).join('')}
+        
+        <script>
+            // Load announcements on page load (for visitors only)
+            async function loadPageAnnouncements() {
+                // Check if user is admin by checking for admin token
+                const adminToken = localStorage.getItem('adminToken');
+                if (adminToken) {
+                    // Don't show announcements to admin users
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/announcements');
+                    if (response.ok) {
+                        const announcements = await response.json();
+                        displayPageAnnouncements(announcements);
+                    }
+                } catch (error) {
+                    console.error('Error loading announcements:', error);
+                }
+            }
+            
+            function displayPageAnnouncements(announcements) {
+                const announcementsSection = document.getElementById('announcementsSection');
+                
+                if (announcements.length === 0) {
+                    announcementsSection.style.display = 'none';
+                    return;
+                }
+                
+                const typeIcons = {
+                    info: 'ℹ️',
+                    success: '✅',
+                    warning: '⚠️',
+                    error: '❌'
+                };
+                
+                announcementsSection.innerHTML = announcements.map(function(announcement) {
+                    return "<div class=\"announcement-banner announcement-" + announcement.type + "\">"
+                        + "<div class=\"announcement-title\">" + typeIcons[announcement.type] + " " + announcement.title + "</div>"
+                        + "<div>" + announcement.message + "</div>"
+                        + "</div>";
+                }).join("");
+                
+                announcementsSection.style.display = 'block';
+            }
+            
+            // Load announcements when page loads
+            document.addEventListener('DOMContentLoaded', loadPageAnnouncements);
+        </script>
     </body>
     </html>
   `);
@@ -4752,6 +4828,77 @@ app.get('/admin/api/blog/analytics', requireAuth, (req, res) => {
 });
 
 // ========================================
+// ANNOUNCEMENTS API ROUTES
+// ========================================
+
+// Get all announcements (admin only)
+app.get('/admin/api/announcements', requireAuth, (req, res) => {
+  res.json(announcementDatabase);
+});
+
+// Create new announcement (admin only)
+app.post('/admin/api/announcements', requireAuth, (req, res) => {
+  const { title, message, type } = req.body;
+  
+  if (!title || !message) {
+    return res.status(400).json({ error: 'Title and message are required' });
+  }
+  
+  if (!['info', 'success', 'warning', 'error'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid announcement type' });
+  }
+  
+  const id = 'announcement-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  const announcement = {
+    id,
+    title: title.trim(),
+    message: message.trim(),
+    type,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  announcementDatabase[id] = announcement;
+  res.json(announcement);
+});
+
+// Toggle announcement enabled/disabled (admin only)
+app.put('/admin/api/announcements/:id/toggle', requireAuth, (req, res) => {
+  const { id } = req.params;
+  
+  if (!announcementDatabase[id]) {
+    return res.status(404).json({ error: 'Announcement not found' });
+  }
+  
+  announcementDatabase[id].enabled = !announcementDatabase[id].enabled;
+  announcementDatabase[id].updatedAt = new Date().toISOString();
+  
+  res.json(announcementDatabase[id]);
+});
+
+// Delete announcement (admin only)
+app.delete('/admin/api/announcements/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  
+  if (!announcementDatabase[id]) {
+    return res.status(404).json({ error: 'Announcement not found' });
+  }
+  
+  delete announcementDatabase[id];
+  res.json({ success: true, message: 'Announcement deleted' });
+});
+
+// Get active announcements for visitors (public endpoint)
+app.get('/api/announcements', (req, res) => {
+  const activeAnnouncements = Object.values(announcementDatabase)
+    .filter(announcement => announcement.enabled)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  res.json(activeAnnouncements);
+});
+
+// ========================================
 // SAFELINK ROUTES
 // ========================================
 
@@ -5070,77 +5217,6 @@ app.get('/:shortCode', (req, res) => {
       </html>
     `);
   }
-});
-
-// ========================================
-// ANNOUNCEMENTS API ROUTES
-// ========================================
-
-// Get all announcements (admin only)
-app.get('/admin/api/announcements', requireAuth, (req, res) => {
-  res.json(announcementDatabase);
-});
-
-// Create new announcement (admin only)
-app.post('/admin/api/announcements', requireAuth, (req, res) => {
-  const { title, message, type } = req.body;
-  
-  if (!title || !message) {
-    return res.status(400).json({ error: 'Title and message are required' });
-  }
-  
-  if (!['info', 'success', 'warning', 'error'].includes(type)) {
-    return res.status(400).json({ error: 'Invalid announcement type' });
-  }
-  
-  const id = 'announcement-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-  const announcement = {
-    id,
-    title: title.trim(),
-    message: message.trim(),
-    type,
-    enabled: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  
-  announcementDatabase[id] = announcement;
-  res.json(announcement);
-});
-
-// Toggle announcement enabled/disabled (admin only)
-app.put('/admin/api/announcements/:id/toggle', requireAuth, (req, res) => {
-  const { id } = req.params;
-  
-  if (!announcementDatabase[id]) {
-    return res.status(404).json({ error: 'Announcement not found' });
-  }
-  
-  announcementDatabase[id].enabled = !announcementDatabase[id].enabled;
-  announcementDatabase[id].updatedAt = new Date().toISOString();
-  
-  res.json(announcementDatabase[id]);
-});
-
-// Delete announcement (admin only)
-app.delete('/admin/api/announcements/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  
-  if (!announcementDatabase[id]) {
-    return res.status(404).json({ error: 'Announcement not found' });
-  }
-  
-  delete announcementDatabase[id];
-  res.json({ success: true, message: 'Announcement deleted' });
-});
-
-// Get active announcements for visitors (public endpoint)
-app.get('/api/announcements', (req, res) => {
-  const activeAnnouncements = Object.values(announcementDatabase)
-    .filter(announcement => announcement.enabled)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  
-  res.json(activeAnnouncements);
 });
 
 // API endpoint to get all URLs (for debugging/admin purposes)
