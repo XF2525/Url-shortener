@@ -15,6 +15,79 @@ A simple URL shortener built with Node.js and Express that allows you to create 
 - 🔒 Enhanced security with XSS protection
 - 📊 Admin dashboard with real-time analytics
 - 🏥 Health monitoring and status endpoints
+- ⚡ **GitHub Actions CI/CD Pipeline**
+
+## 🚀 **NEW: GitHub Actions CI/CD**
+
+This project now includes comprehensive GitHub Actions workflows for automated build, test, and deployment:
+
+### Automated Workflows
+
+#### 🔄 **CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
+- **Triggers**: Push to main/develop, Pull Requests, Manual dispatch
+- **Features**:
+  - ✅ Code quality checks and testing
+  - 🐳 Multi-platform Docker image building (AMD64 + ARM64)
+  - 🔒 Security scanning with Trivy
+  - 🚀 Automated staging and production deployment
+  - ⚡ Performance testing
+  - 🔄 Automatic rollback capability
+  - 🧹 Resource cleanup
+
+#### 🔍 **Pull Request Validation** (`.github/workflows/pr-validation.yml`)
+- **Triggers**: Pull Request events
+- **Features**:
+  - ✅ Code validation and testing
+  - 🔒 Security audit
+  - 📊 Performance impact analysis
+  - 🤖 Dependabot auto-merge
+
+#### 📦 **Release Management** (`.github/workflows/release.yml`)
+- **Triggers**: Git tags (v*), Manual dispatch
+- **Features**:
+  - 📦 Release artifact creation
+  - 🐳 Release Docker image building
+  - 📋 GitHub release creation with notes
+  - 🚀 Production deployment
+  - 🧪 Post-deployment testing
+
+#### 🛠️ **Scheduled Maintenance** (`.github/workflows/maintenance.yml`)
+- **Triggers**: Daily schedule (2 AM UTC), Manual dispatch
+- **Features**:
+  - 🔒 Security updates monitoring
+  - 📦 Dependency updates
+  - 🐳 Container image updates
+  - 📊 Performance monitoring
+  - 🧹 Cleanup tasks
+  - 📋 Health reporting
+
+### Container Registry
+Images are automatically built and published to GitHub Container Registry:
+```
+ghcr.io/xf2525/url-shortener:latest
+ghcr.io/xf2525/url-shortener:v1.0.0
+```
+
+### Deployment Environments
+- **Staging**: Automatic deployment from `develop` branch
+- **Production**: Automatic deployment from `main` branch with approval gates
+- **Manual**: On-demand deployment via workflow dispatch
+
+### Usage Examples
+```bash
+# Trigger manual deployment to staging
+gh workflow run ci-cd.yml -f deployment_target=staging
+
+# Trigger manual deployment to production  
+gh workflow run ci-cd.yml -f deployment_target=production
+
+# Create a new release
+git tag v1.0.0
+git push origin v1.0.0
+
+# Trigger security maintenance
+gh workflow run maintenance.yml
+```
 
 ## Quick Start
 
@@ -37,7 +110,13 @@ npm run dev
 
 ### 3. Production Deployment
 
-#### Option A: Local Deployment (Recommended)
+#### Option A: GitHub Actions (Recommended)
+The repository automatically deploys via GitHub Actions:
+- Push to `develop` → staging deployment
+- Push to `main` → production deployment
+- Create release tag → versioned deployment
+
+#### Option B: Local Deployment Script
 ```bash
 # Automated deployment with our deployment script
 ./deploy.sh local
@@ -46,7 +125,7 @@ npm run dev
 npm run deploy:local
 ```
 
-#### Option B: Docker Deployment
+#### Option C: Docker Deployment
 ```bash
 # Using deployment script
 ./deploy.sh docker
@@ -55,7 +134,7 @@ npm run deploy:local
 npm run deploy:docker
 ```
 
-#### Option C: Docker Compose (Full Stack)
+#### Option D: Docker Compose (Full Stack)
 ```bash
 # Using deployment script (includes nginx reverse proxy)
 ./deploy.sh docker-compose
@@ -108,6 +187,16 @@ We provide a comprehensive deployment script (`deploy.sh`) that handles:
 | `npm run health-check` | Check application health |
 | `npm run clean` | Clean dependencies and lock files |
 | `npm run reinstall` | Clean and reinstall dependencies |
+| **CI/CD Scripts** |  |
+| `npm run ci:build` | CI build pipeline |
+| `npm run ci:test` | CI testing pipeline |
+| `npm run ci:security` | CI security audit |
+| `npm run ci:docker` | CI Docker build and test |
+| `npm run ci:deploy` | Complete CI deployment |
+| `npm run release:prepare` | Prepare release artifacts |
+| `npm run release:docker` | Build release Docker image |
+| `npm run release:tag` | Create release tag |
+| `npm run release:publish` | Complete release process |
 
 ## 🏥 Health Monitoring
 
@@ -117,6 +206,7 @@ The application includes built-in health monitoring:
 - **Returns**: Application status, uptime, memory usage, version
 - **Docker Integration**: Automatic health checks in containerized deployments
 - **Nginx Integration**: Health checks through reverse proxy
+- **CI/CD Integration**: Automated health validation in deployment pipeline
 
 Example health check response:
 ```json
@@ -164,6 +254,15 @@ docker-compose logs -f
 
 # Stop all services
 docker-compose down
+```
+
+### GitHub Actions Container Images
+```bash
+# Pull latest from GitHub Container Registry
+docker pull ghcr.io/xf2525/url-shortener:latest
+
+# Run the latest build
+docker run -p 3000:3000 ghcr.io/xf2525/url-shortener:latest
 ```
 
 ## Usage
@@ -219,6 +318,8 @@ Get analytics data (requires authentication).
 - **Security Headers**: Comprehensive HTTP security headers
 - **Input Validation**: Parameter validation for all routes
 - **Container Security**: Non-root user in Docker containers
+- **Automated Security Scanning**: Trivy vulnerability scanning in CI/CD
+- **Dependency Auditing**: Automated npm audit in workflows
 
 ## 🌐 Production Considerations
 
@@ -231,12 +332,15 @@ Get analytics data (requires authentication).
 - Rate limiting for API protection
 - Memory optimization and cleanup
 - Connection pooling and keep-alive
+- GitHub Actions build optimization with caching
 
 ### Monitoring
 - Health check endpoints for load balancers
 - Application metrics and analytics
 - Log management and rotation
 - Resource usage monitoring
+- Automated performance testing in CI/CD
+- Daily maintenance workflows
 
 ## Technical Details
 
@@ -244,7 +348,9 @@ Get analytics data (requires authentication).
 - **Storage:** In-memory (URLs are lost when server restarts)
 - **Short Code Generation:** Random 6-character alphanumeric strings
 - **Port:** 3000 (configurable via PORT environment variable)
-- **Node.js Version:** 14+ required
+- **Node.js Version:** 18 (with 14+ support)
+- **Container Platforms:** linux/amd64, linux/arm64
+- **CI/CD:** GitHub Actions with multi-environment deployment
 
 ## Example
 
@@ -275,6 +381,7 @@ npm run dev
 ```bash
 npm test
 npm run validate  # Run linting and tests
+npm run ci:test   # CI-style testing
 ```
 
 ### Code Quality
@@ -284,6 +391,9 @@ The project includes:
 - Performance optimizations
 - Error handling
 - Memory management
+- Automated CI/CD pipeline
+- Security scanning
+- Performance monitoring
 
 ## License
 
@@ -293,6 +403,7 @@ ISC
 
 For issues and questions:
 - Check the health endpoint: `/health`
-- Review application logs
+- Review GitHub Actions workflow logs
 - Use the deployment script for automated setup
 - Check Docker container logs: `docker-compose logs -f`
+- Review automated health reports from maintenance workflows

@@ -31,3 +31,13 @@ coverage/
 # Build artifacts
 dist/
 build/
+
+# GitHub Actions artifacts
+.github-actions/
+*-report.txt
+*.sarif
+sbom.spdx.json
+trivy-results.sarif
+performance-report.txt
+health-report.md
+release-notes.md
