@@ -1988,4 +1988,8 @@ app.post('/admin/login', (req, res) => {
 
 // Admin dashboard
 app.get('/admin/dashboard', (req, res) => {
+  // Dashboard implementation would go here
+  res.send('Dashboard');
+});
+
 console.log('File loaded successfully');

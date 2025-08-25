@@ -5,18 +5,42 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "NODE_ENV=development node app.js",
+    "prod": "NODE_ENV=production node app.js",
+    "build": "npm install --production",
+    "test": "node test.js",
+    "lint": "node -c app.js && echo 'Syntax check passed'",
+    "validate": "npm run lint && npm test",
+    "deploy:local": "npm run build && npm run prod",
+    "deploy:docker": "docker build -t url-shortener . && docker run -p 3000:3000 url-shortener",
+    "health-check": "curl -f http://localhost:3000/health || exit 1",
+    "clean": "rm -rf node_modules package-lock.json",
+    "reinstall": "npm run clean && npm install"
   },
   "keywords": [
     "url-shortener",
     "express",
-    "nodejs"
+    "nodejs",
+    "web-application",
+    "deployment"
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
   "dependencies": {
     "express": "^5.1.0",
     "escape-html": "^1.0.3"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XF2525/Url-shortener.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XF2525/Url-shortener/issues"
+  },
+  "homepage": "https://github.com/XF2525/Url-shortener#readme"
 }

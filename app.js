@@ -1221,6 +1221,20 @@ function requireAuth(req, res, next) {
 
 // Routes
 
+// Health check endpoint for deployment monitoring
+app.get('/health', (req, res) => {
+  const healthStatus = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  };
+  
+  res.status(200).json(healthStatus);
+});
+
 // Home page
 app.get('/', (req, res) => {
   res.send(`
