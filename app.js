@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const escape = require('escape-html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -4976,7 +4977,7 @@ app.get('/8page/:pageIndex/:shortCode', (req, res) => {
             ${currentPageIndex + 1 >= totalPages ? '🎯 Continue to Destination' : '➡️ Next Content'}
         </a>
         <div style="margin-top: 20px; font-size: 12px; color: #666;">
-            Final destination: ${originalUrl}
+            Final destination: ${escape(originalUrl)}
         </div>
     </div>
     <script>

@@ -8,10 +8,15 @@
     "dev": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["url-shortener", "express", "nodejs"],
+  "keywords": [
+    "url-shortener",
+    "express",
+    "nodejs"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "escape-html": "^1.0.3"
   }
 }
