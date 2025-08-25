@@ -2263,6 +2263,34 @@ app.get('/admin/dashboard', (req, res) => {
         <h2>📄 8-Page Redirection Configuration <span style="background: linear-gradient(45deg, #9b59b6, #8e44ad); color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">🎯 EXPERIMENTAL</span></h2>
         <p style="color: #666; margin-bottom: 20px;">Configure short URLs to redirect through 8 randomized blog pages before reaching the final destination.</p>
         
+        <!-- Analytics Dashboard -->
+        <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4CAF50;">
+            <h3 style="margin-top: 0; color: #2e7d32;">📊 8-Page Analytics Dashboard</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #4CAF50;" id="totalRedirects">0</div>
+                    <div style="color: #666; font-size: 14px;">Total Redirects</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #2196F3;" id="completedChains">0</div>
+                    <div style="color: #666; font-size: 14px;">Completed Chains</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; color: #ff9800;" id="completionRate">0%</div>
+                    <div style="color: #666; font-size: 14px;">Completion Rate</div>
+                </div>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px;">
+                <h4 style="margin-top: 0; color: #333;">📈 Abandonment by Page</h4>
+                <div id="abandonmentChart" style="margin-top: 10px;">
+                    <!-- Chart will be populated by JavaScript -->
+                </div>
+            </div>
+            <div style="margin-top: 10px; text-align: center;">
+                <button onclick="refresh8PageAnalytics()" style="background-color: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer;">🔄 Refresh Analytics</button>
+            </div>
+        </div>
+        
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h3 style="margin-top: 0; color: #495057;">🌍 Global Settings</h3>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -2283,6 +2311,19 @@ app.get('/admin/dashboard', (req, res) => {
             </div>
             <div style="margin-top: 15px;">
                 <button onclick="save8PageGlobalSettings()" style="background-color: #9b59b6; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">💾 Save Settings</button>
+            </div>
+        </div>
+        
+        <!-- Test Feature -->
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+            <h3 style="margin-top: 0; color: #856404;">🧪 Test 8-Page Feature</h3>
+            <p style="color: #856404; margin-bottom: 15px;">Test the 8-page redirection feature with a sample URL</p>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="url" id="testUrl" placeholder="https://example.com" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button onclick="test8PageFeature()" style="background-color: #ffc107; color: #212529; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; white-space: nowrap;">🚀 Create Test URL</button>
+            </div>
+            <div id="testResult" style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; display: none;">
+                <!-- Test result will appear here -->
             </div>
         </div>
         
@@ -2355,24 +2396,159 @@ app.get('/admin/dashboard', (req, res) => {
             document.getElementById('8pageSettings').style.display = 'block';
             document.getElementById('8pageSettings').scrollIntoView({ behavior: 'smooth' });
             load8PageSettings();
+            refresh8PageAnalytics();
         }
 
         function hide8PageSettings() {
             document.getElementById('8pageSettings').style.display = 'none';
         }
 
-        function load8PageSettings() {
-            // Load current configuration
-            document.getElementById('8pageEnabled').value = 'false';
-            document.getElementById('8pageRandomize').value = 'true';
+        async function load8PageSettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/admin/api/8page/config', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    const config = await response.json();
+                    document.getElementById('8pageEnabled').value = config.enabled;
+                    document.getElementById('8pageRandomize').value = config.randomize;
+                } else {
+                    // Fallback to default values
+                    document.getElementById('8pageEnabled').value = 'false';
+                    document.getElementById('8pageRandomize').value = 'true';
+                }
+            } catch (error) {
+                console.error('Error loading 8-page settings:', error);
+                // Fallback to default values
+                document.getElementById('8pageEnabled').value = 'false';
+                document.getElementById('8pageRandomize').value = 'true';
+            }
         }
 
-        function save8PageGlobalSettings() {
-            const enabled = document.getElementById('8pageEnabled').value === 'true';
-            const randomize = document.getElementById('8pageRandomize').value === 'true';
+        async function save8PageGlobalSettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const settings = {
+                    enabled: document.getElementById('8pageEnabled').value === 'true',
+                    randomize: document.getElementById('8pageRandomize').value === 'true'
+                };
+
+                const response = await fetch('/admin/api/8page/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(settings)
+                });
+
+                if (response.ok) {
+                    alert('8-Page Redirection settings saved successfully!');
+                    refresh8PageAnalytics();
+                } else {
+                    alert('Error saving 8-page settings');
+                }
+            } catch (error) {
+                console.error('Error saving 8-page settings:', error);
+                alert('Error saving 8-page settings');
+            }
+        }
+
+        async function refresh8PageAnalytics() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/admin/api/8page/config', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    const config = await response.json();
+                    const analytics = config.analytics;
+                    
+                    // Update analytics display
+                    document.getElementById('totalRedirects').textContent = analytics.totalRedirects || 0;
+                    document.getElementById('completedChains').textContent = analytics.completedChains || 0;
+                    
+                    // Calculate completion rate
+                    const completionRate = analytics.totalRedirects > 0 ? 
+                        Math.round((analytics.completedChains / analytics.totalRedirects) * 100) : 0;
+                    document.getElementById('completionRate').textContent = completionRate + '%';
+                    
+                    // Update abandonment chart
+                    updateAbandonmentChart(analytics.abandonedAt || {});
+                }
+            } catch (error) {
+                console.error('Error refreshing analytics:', error);
+            }
+        }
+
+        function updateAbandonmentChart(abandonedAt) {
+            const chartContainer = document.getElementById('abandonmentChart');
+            let chartHTML = '';
             
-            alert('8-Page settings saved successfully! (Feature coming soon)');
-            console.log('8-Page settings:', { enabled, randomize });
+            for (let i = 0; i < 8; i++) {
+                const count = abandonedAt[i] || 0;
+                const maxCount = Math.max(...Object.values(abandonedAt), 1);
+                const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                
+                chartHTML += '<div style="display: flex; align-items: center; margin-bottom: 8px;">' +
+                    '<div style="width: 80px; font-size: 12px; color: #666;">Page ' + (i + 1) + ':</div>' +
+                    '<div style="flex: 1; background: #f0f0f0; border-radius: 4px; height: 20px; margin: 0 10px; position: relative; overflow: hidden;">' +
+                    '<div style="background: linear-gradient(90deg, #ff6b6b, #feca57); height: 100%; width: ' + percentage + '%; transition: width 0.3s ease;"></div>' +
+                    '</div>' +
+                    '<div style="width: 40px; font-size: 12px; color: #333; text-align: right;">' + count + '</div>' +
+                    '</div>';
+            }
+            
+            chartContainer.innerHTML = chartHTML || '<div style="color: #666; text-align: center; padding: 20px;">No abandonment data yet</div>';
+        }
+
+        async function test8PageFeature() {
+            const testUrl = document.getElementById('testUrl').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            if (!testUrl) {
+                alert('Please enter a test URL');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/shorten', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ url: testUrl })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const shortUrl = window.location.origin + '/' + result.shortCode;
+                    
+                    resultDiv.innerHTML = 
+                        '<div style="color: #28a745; font-weight: bold; margin-bottom: 10px;">✅ Test URL Created Successfully!</div>' +
+                        '<div style="margin-bottom: 10px;">' +
+                        '<strong>Short URL:</strong> <a href="' + shortUrl + '" target="_blank" style="color: #007bff;">' + shortUrl + '</a>' +
+                        '</div>' +
+                        '<div style="margin-bottom: 10px;">' +
+                        '<strong>Original URL:</strong> ' + testUrl +
+                        '</div>' +
+                        '<div style="font-size: 12px; color: #666;">' +
+                        'Click the short URL to test the 8-page redirection feature.' +
+                        '</div>';
+                    resultDiv.style.display = 'block';
+                } else {
+                    throw new Error('Failed to create test URL');
+                }
+            } catch (error) {
+                console.error('Error creating test URL:', error);
+                resultDiv.innerHTML = '<div style="color: #dc3545;">❌ Error creating test URL</div>';
+                resultDiv.style.display = 'block';
+            }
         }
 
         function hideAllPanels() {
@@ -3543,6 +3719,47 @@ app.post('/admin/api/8page/config', requireAuth, (req, res) => {
     message: '8-Page Redirection configuration updated successfully',
     config: eightPageRedirectionConfig
   });
+});
+
+// Track abandonment for analytics
+app.post('/api/8page/abandon/:shortCode/:pageIndex', (req, res) => {
+  const { shortCode, pageIndex } = req.params;
+  
+  // Validate input
+  const parsedPageIndex = parseInt(pageIndex);
+  if (isNaN(parsedPageIndex) || parsedPageIndex < 0 || parsedPageIndex > 7) {
+    return res.status(400).json({ error: 'Invalid page index' });
+  }
+  
+  if (!shortCode || typeof shortCode !== 'string' || shortCode.length === 0) {
+    return res.status(400).json({ error: 'Invalid short code' });
+  }
+  
+  // Check if URL exists (optional validation)
+  if (!urlDatabase[shortCode]) {
+    return res.status(404).json({ error: 'URL not found' });
+  }
+  
+  // Rate limiting - only allow one abandonment tracking per shortCode+pageIndex per minute
+  const key = `${shortCode}_${parsedPageIndex}`;
+  const now = Date.now();
+  if (!eightPageRedirectionConfig.lastAbandonmentTracking) {
+    eightPageRedirectionConfig.lastAbandonmentTracking = {};
+  }
+  
+  const lastTracked = eightPageRedirectionConfig.lastAbandonmentTracking[key];
+  if (lastTracked && (now - lastTracked) < 60000) { // 1 minute cooldown
+    return res.json({ message: 'Already tracked' });
+  }
+  
+  // Track abandonment
+  if (!eightPageRedirectionConfig.analytics.abandonedAt[parsedPageIndex]) {
+    eightPageRedirectionConfig.analytics.abandonedAt[parsedPageIndex] = 0;
+  }
+  eightPageRedirectionConfig.analytics.abandonedAt[parsedPageIndex]++;
+  eightPageRedirectionConfig.lastAbandonmentTracking[key] = now;
+  
+  res.json({ message: 'Abandonment tracked' });
 });
 
 // ========================================
@@ -4928,6 +5145,17 @@ app.get('/safelink/proceed/:shortCode', (req, res) => {
 // 8-Page redirection route - for now, just demonstrate the concept
 app.get('/8page/:pageIndex/:shortCode', (req, res) => {
   const { pageIndex, shortCode } = req.params;
+  
+  // Validate input parameters
+  if (!shortCode || typeof shortCode !== 'string' || shortCode.length === 0) {
+    return res.status(400).send('Invalid short code');
+  }
+  
+  const parsedPageIndex = parseInt(pageIndex);
+  if (isNaN(parsedPageIndex) || parsedPageIndex < 0 || parsedPageIndex > 8) {
+    return res.status(400).send('Invalid page index');
+  }
+  
   const originalUrl = urlDatabase[shortCode];
   
   if (!originalUrl) {
@@ -4939,7 +5167,7 @@ app.get('/8page/:pageIndex/:shortCode', (req, res) => {
     return res.redirect(originalUrl);
   }
   
-  const currentPageIndex = parseInt(pageIndex);
+  const currentPageIndex = parsedPageIndex;
   const totalPages = 8;
   
   // If we've gone through all pages, redirect to final destination
@@ -4949,48 +5177,229 @@ app.get('/8page/:pageIndex/:shortCode', (req, res) => {
     return res.redirect(originalUrl);
   }
   
+  // Track page views and abandonment
+  if (!eightPageRedirectionConfig.analytics.abandonedAt[currentPageIndex]) {
+    eightPageRedirectionConfig.analytics.abandonedAt[currentPageIndex] = 0;
+  }
+  eightPageRedirectionConfig.analytics.abandonedAt[currentPageIndex]++;
+  
   // Generate a simple intermediate page
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Content Hub - Page ${currentPageIndex + 1} of ${totalPages}</title>
+    <title>Content Hub - Page ${parseInt(currentPageIndex) + 1} of ${parseInt(totalPages)}</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 50px 20px; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .container { background: white; color: #333; padding: 40px; border-radius: 15px; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .progress { background: #f0f0f0; border-radius: 10px; height: 8px; margin: 20px 0; overflow: hidden; }
-        .progress-bar { background: linear-gradient(90deg, #4CAF50, #45a049); height: 100%; width: ${((currentPageIndex + 1) / totalPages) * 100}%; transition: width 0.3s ease; }
-        .countdown { font-size: 24px; color: #ff6b6b; margin: 20px 0; }
-        .btn { background: #4CAF50; color: white; padding: 15px 30px; border: none; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 20px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 20px; 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .container { 
+            background: white; 
+            color: #333; 
+            padding: 40px; 
+            border-radius: 20px; 
+            max-width: 700px; 
+            width: 100%; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+            text-align: center;
+        }
+        .header { margin-bottom: 30px; }
+        .header h1 { color: #4CAF50; margin-bottom: 10px; font-size: 2.2em; }
+        .progress-section { margin: 25px 0; }
+        .progress { 
+            background: #f0f0f0; 
+            border-radius: 15px; 
+            height: 12px; 
+            margin: 15px 0; 
+            overflow: hidden; 
+            position: relative;
+        }
+        .progress-bar { 
+            background: linear-gradient(90deg, #4CAF50, #45a049); 
+            height: 100%; 
+            width: ${((parseInt(currentPageIndex) + 1) / totalPages) * 100}%; 
+            transition: width 0.5s ease; 
+            position: relative;
+        }
+        .progress-text { 
+            font-weight: bold; 
+            color: #666; 
+            margin-top: 8px; 
+        }
+        .countdown-section { 
+            background: linear-gradient(45deg, #ff6b6b, #feca57); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 15px; 
+            margin: 25px 0; 
+        }
+        .countdown { 
+            font-size: 28px; 
+            font-weight: bold; 
+            margin: 10px 0; 
+        }
+        .content-section { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            border-radius: 15px; 
+            margin: 25px 0; 
+        }
+        .content-section h3 { 
+            color: #333; 
+            margin-bottom: 15px; 
+            font-size: 1.4em; 
+        }
+        .content-section p { 
+            color: #666; 
+            line-height: 1.6; 
+            margin-bottom: 15px; 
+        }
+        .actions { 
+            display: flex; 
+            gap: 15px; 
+            justify-content: center; 
+            flex-wrap: wrap; 
+            margin-top: 30px; 
+        }
+        .btn { 
+            background: #4CAF50; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 10px; 
+            text-decoration: none; 
+            display: inline-block; 
+            font-weight: bold; 
+            font-size: 16px; 
+            transition: all 0.3s ease; 
+            cursor: pointer;
+        }
+        .btn:hover { 
+            background: #45a049; 
+            transform: translateY(-2px); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); 
+        }
+        .btn-secondary { 
+            background: #6c757d; 
+        }
+        .btn-secondary:hover { 
+            background: #5a6268; 
+        }
+        .destination-info { 
+            margin-top: 25px; 
+            padding: 15px; 
+            background: #e9f7ef; 
+            border-radius: 10px; 
+            border-left: 4px solid #4CAF50; 
+        }
+        .destination-info p { 
+            margin: 0; 
+            font-size: 14px; 
+            color: #666; 
+        }
+        .destination-url { 
+            word-break: break-all; 
+            font-family: monospace; 
+            background: #f8f9fa; 
+            padding: 5px 10px; 
+            border-radius: 5px; 
+            margin-top: 5px; 
+        }
+        @media (max-width: 600px) {
+            .container { padding: 25px; margin: 10px; }
+            .header h1 { font-size: 1.8em; }
+            .countdown { font-size: 24px; }
+            .actions { flex-direction: column; }
+            .btn { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔗 Content Hub - Interesting Reads</h1>
-        <p>Page ${currentPageIndex + 1} of ${totalPages}</p>
-        <div class="progress"><div class="progress-bar"></div></div>
-        <div class="countdown">Please wait <span id="countdown">3</span> seconds</div>
-        <h3>📝 Sample Blog Content</h3>
-        <p>This is a demonstration of the 8-page redirection feature. In a full implementation, this would show actual blog content to engage users before they reach their final destination.</p>
-        <a href="/8page/${currentPageIndex + 1}/${shortCode}" class="btn" id="proceedBtn" style="display:none;">
-            ${currentPageIndex + 1 >= totalPages ? '🎯 Continue to Destination' : '➡️ Next Content'}
-        </a>
-        <div style="margin-top: 20px; font-size: 12px; color: #666;">
-            Final destination: ${escape(originalUrl)}
+        <div class="header">
+            <h1>🔗 Content Discovery Hub</h1>
+            <p>Explore interesting content before reaching your destination</p>
+        </div>
+        
+        <div class="progress-section">
+            <div class="progress">
+                <div class="progress-bar"></div>
+            </div>
+            <div class="progress-text">Page ${parseInt(currentPageIndex) + 1} of ${parseInt(totalPages)} - ${Math.round(((parseInt(currentPageIndex) + 1) / totalPages) * 100)}% Complete</div>
+        </div>
+        
+        <div class="countdown-section">
+            <div>⏱️ Please wait <span id="countdown" class="countdown">3</span> seconds</div>
+            <div style="font-size: 14px; margin-top: 10px;">Or wait for the continue button to appear</div>
+        </div>
+        
+        <div class="content-section">
+            <h3>📖 Sample Content - Page ${parseInt(currentPageIndex) + 1}</h3>
+            <p>This is an engaging content preview for page ${parseInt(currentPageIndex) + 1}. In a full implementation, this section would display actual blog content, articles, or other interesting material to engage users during their journey.</p>
+            <p><strong>💡 Did you know?</strong> URL shorteners were first popularized in the early 2000s with services like TinyURL, and they've become essential for social media sharing due to character limits.</p>
+        </div>
+        
+        <div class="actions">
+            <a href="/8page/${parseInt(currentPageIndex) + 1}/${escape(shortCode)}" class="btn" id="proceedBtn" style="display:none;">
+                ${parseInt(currentPageIndex) + 1 >= totalPages ? '🎯 Continue to Destination' : '➡️ Next Content'}
+            </a>
+            <a href="${escape(originalUrl)}" class="btn btn-secondary" id="skipBtn">
+                ⏭️ Skip All & Go Direct
+            </a>
+        </div>
+        
+        <div class="destination-info">
+            <p><strong>🎯 Final Destination:</strong></p>
+            <div class="destination-url">${escape(originalUrl)}</div>
         </div>
     </div>
+    
     <script>
         let timeLeft = 3;
+        const countdownEl = document.getElementById('countdown');
+        const proceedBtn = document.getElementById('proceedBtn');
+        
         const timer = setInterval(() => {
             timeLeft--;
-            document.getElementById('countdown').textContent = timeLeft;
+            countdownEl.textContent = timeLeft;
+            
             if (timeLeft <= 0) {
                 clearInterval(timer);
-                document.getElementById('countdown').textContent = '✅';
-                document.getElementById('proceedBtn').style.display = 'inline-block';
+                countdownEl.textContent = '✅';
+                countdownEl.parentElement.innerHTML = '✅ Ready to continue!';
+                proceedBtn.style.display = 'inline-block';
+                proceedBtn.focus(); // Focus for accessibility
             }
         }, 1000);
+        
+        // Track abandonment when user leaves
+        window.addEventListener('beforeunload', function() {
+            if (timeLeft > 0) {
+                try {
+                    navigator.sendBeacon('/api/8page/abandon/' + encodeURIComponent('${escape(shortCode)}') + '/' + ${parseInt(currentPageIndex)});
+                } catch (e) {
+                    // Ignore beacon errors
+                }
+            }
+        });
+        
+        // Add keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && proceedBtn.style.display !== 'none') {
+                proceedBtn.click();
+            } else if (e.key === 'Escape') {
+                document.getElementById('skipBtn').click();
+            }
+        });
     </script>
 </body>
 </html>`);
@@ -5208,6 +5617,7 @@ app.get('/:shortCode', (req, res) => {
     if (eightPageRedirectionConfig.enabled) {
       const enabledPages = eightPageRedirectionConfig.pages.filter(page => page.enabled);
       if (enabledPages.length > 0) {
+        eightPageRedirectionConfig.analytics.totalRedirects++;
         return res.redirect(`/8page/0/${shortCode}`);
       }
     }
