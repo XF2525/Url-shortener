@@ -5,3 +5,39 @@ yarn-error.log*
 .env
 .DS_Store
 *.log
+
+# Deployment artifacts
+.app.pid
+logs/
+ssl/
+*.backup
+*.backup2
+*.backup3
+*.debug
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# nyc test coverage
+.nyc_output
+
+# Build artifacts
+dist/
+build/
+
+# GitHub Actions artifacts
+.github-actions/
+*-report.txt
+*.sarif
+sbom.spdx.json
+trivy-results.sarif
+performance-report.txt
+health-report.md
+release-notes.md
