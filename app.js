@@ -92,6 +92,19 @@ function setCachedAnalytics(type, data) {
   cacheUtils.set('analytics', type, data, false);
 }
 
+// Whitelist of trusted domains for redirection
+const TRUSTED_DOMAINS = ['example.com']; // TODO: Update with your own domain(s)
+
+// Helper to check if a given url is trusted (host matches whitelist)
+function isTrustedUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return TRUSTED_DOMAINS.includes(parsed.hostname);
+  } catch (e) {
+    return false;
+  }
+}
+
 // In-memory storage for URL mappings
 const urlDatabase = {};
 
@@ -5164,7 +5177,11 @@ app.get('/8page/:pageIndex/:shortCode', (req, res) => {
   
   if (!eightPageRedirectionConfig.enabled) {
     recordClick(shortCode, req);
-    return res.redirect(originalUrl);
+    if (isTrustedUrl(originalUrl)) {
+      return res.redirect(originalUrl);
+    } else {
+      return res.redirect('/');
+    }
   }
   
   const currentPageIndex = parsedPageIndex;
@@ -5174,7 +5191,11 @@ app.get('/8page/:pageIndex/:shortCode', (req, res) => {
   if (currentPageIndex >= totalPages) {
     recordClick(shortCode, req);
     eightPageRedirectionConfig.analytics.completedChains++;
-    return res.redirect(originalUrl);
+    if (isTrustedUrl(originalUrl)) {
+      return res.redirect(originalUrl);
+    } else {
+      return res.redirect('/');
+    }
   }
   
   // Track page views and abandonment
