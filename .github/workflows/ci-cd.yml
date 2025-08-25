@@ -13,7 +13,6 @@ on:
         default: 'staging'
         type: choice
         options:
-        - local
         - staging
         - production
 
@@ -138,115 +137,6 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-  # Local Development Deployment
-  deploy-local:
-    name: Deploy to Local Environment
-    runs-on: ubuntu-latest
-    needs: [test, build]
-    if: github.event.inputs.deployment_target == 'local'
-    environment: development
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Run local deployment validation
-      run: |
-        echo "🚀 Starting local deployment validation..."
-        echo "Image: ${{ needs.build.outputs.image-tag }}"
-        echo "Commit: ${{ github.sha }}"
-        
-        # Simulate local deployment validation steps
-        echo "✅ Validating local environment setup..."
-        echo "✅ Checking deployment prerequisites..."
-        echo "✅ Local deployment validation completed"
-        
-    - name: Build for local deployment
-      run: |
-        echo "🏗️ Building application for local environment..."
-        npm run build
-        echo "✅ Local build completed"
-        
-    - name: Test local deployment
-      run: |
-        echo "🧪 Testing local deployment..."
-        
-        # Start the application in background for testing
-        npm start &
-        APP_PID=$!
-        echo $APP_PID > .app.pid
-        
-        # Wait for application to start
-        sleep 5
-        
-        # Run health checks
-        echo "🏥 Running local health checks..."
-        if curl -f http://localhost:3000/health > /dev/null 2>&1; then
-          echo "✅ Local health check passed"
-        else
-          echo "❌ Local health check failed"
-          kill $APP_PID 2>/dev/null || true
-          exit 1
-        fi
-        
-        # Clean up
-        kill $APP_PID 2>/dev/null || true
-        rm -f .app.pid
-        
-    - name: Generate local deployment instructions
-      run: |
-        echo "📋 Local Deployment Instructions:" > local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "## Quick Start" >> local-deployment-guide.md
-        echo "\`\`\`bash" >> local-deployment-guide.md
-        echo "# Clone the repository" >> local-deployment-guide.md
-        echo "git clone https://github.com/${{ github.repository }}.git" >> local-deployment-guide.md
-        echo "cd $(basename ${{ github.repository }})" >> local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "# Install dependencies" >> local-deployment-guide.md
-        echo "npm install" >> local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "# Deploy locally using deployment script" >> local-deployment-guide.md
-        echo "./deploy.sh local" >> local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "# Or run manually" >> local-deployment-guide.md
-        echo "npm run deploy:local" >> local-deployment-guide.md
-        echo "\`\`\`" >> local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "## Docker Deployment" >> local-deployment-guide.md
-        echo "\`\`\`bash" >> local-deployment-guide.md
-        echo "./deploy.sh docker" >> local-deployment-guide.md
-        echo "\`\`\`" >> local-deployment-guide.md
-        echo "" >> local-deployment-guide.md
-        echo "## Validation" >> local-deployment-guide.md
-        echo "- Application: http://localhost:3000" >> local-deployment-guide.md
-        echo "- Health Check: http://localhost:3000/health" >> local-deployment-guide.md
-        echo "- Admin Dashboard: http://localhost:3000/admin" >> local-deployment-guide.md
-        
-    - name: Upload local deployment guide
-      uses: actions/upload-artifact@v4
-      with:
-        name: local-deployment-guide
-        path: local-deployment-guide.md
-        
-    - name: Post local deployment status
-      run: |
-        echo "📊 Local Deployment Summary:"
-        echo "- Environment: Local Development"
-        echo "- Image: ${{ needs.build.outputs.image-tag }}"
-        echo "- Status: ✅ Validated Successfully"
-        echo "- Health: ✅ All checks passed"
-        echo "- Instructions: See uploaded deployment guide artifact"
-
   # Staging Deployment
   deploy-staging:
     name: Deploy to Staging
@@ -335,16 +225,8 @@ jobs:
   performance-test:
     name: Performance Testing
     runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-local]
-    if: |
-      always() && (
-        github.ref == 'refs/heads/develop' || 
-        github.event.inputs.deployment_target == 'staging' ||
-        github.event.inputs.deployment_target == 'local'
-      ) && (
-        needs.deploy-staging.result == 'success' || 
-        needs.deploy-local.result == 'success'
-      )
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.deployment_target == 'staging'
     
     steps:
     - name: Checkout code
@@ -407,7 +289,7 @@ jobs:
   cleanup:
     name: Cleanup
     runs-on: ubuntu-latest
-    needs: [deploy-local, deploy-staging, deploy-production]
+    needs: [deploy-staging, deploy-production]
     if: always()
     
     steps:

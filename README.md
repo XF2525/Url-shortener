@@ -69,16 +69,12 @@ ghcr.io/xf2525/url-shortener:v1.0.0
 ```
 
 ### Deployment Environments
-- **Local**: Manual deployment for development/testing via workflow dispatch
 - **Staging**: Automatic deployment from `develop` branch
 - **Production**: Automatic deployment from `main` branch with approval gates
 - **Manual**: On-demand deployment via workflow dispatch
 
 ### Usage Examples
 ```bash
-# Trigger manual deployment to local environment
-gh workflow run ci-cd.yml -f deployment_target=local
-
 # Trigger manual deployment to staging
 gh workflow run ci-cd.yml -f deployment_target=staging
 
