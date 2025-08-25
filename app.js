@@ -83,6 +83,81 @@ const cacheUtils = {
   }
 };
 
+// Optimized utility functions - consolidated for efficiency
+const utilityFunctions = {
+  // Random generation utilities
+  generateRandomString(length = 6) {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const charsLength = chars.length;
+    
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * charsLength));
+    }
+    
+    return result;
+  },
+
+  generateBlogId() {
+    return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  generateRandomIP() {
+    return `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+  },
+
+  getRandomUserAgent(agents) {
+    return agents[Math.floor(Math.random() * agents.length)];
+  },
+
+  generateUniqueId(prefix = '') {
+    return prefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  // Debounce function for performance optimization
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  },
+
+  // Interval manager for better resource management
+  intervalManager: {
+    intervals: new Map(),
+    
+    create(id, callback, delay) {
+      // Clear existing interval with same ID
+      if (this.intervals.has(id)) {
+        clearInterval(this.intervals.get(id));
+      }
+      
+      const intervalId = setInterval(callback, delay);
+      this.intervals.set(id, intervalId);
+      return intervalId;
+    },
+    
+    clear(id) {
+      if (this.intervals.has(id)) {
+        clearInterval(this.intervals.get(id));
+        this.intervals.delete(id);
+        return true;
+      }
+      return false;
+    },
+    
+    clearAll() {
+      this.intervals.forEach(intervalId => clearInterval(intervalId));
+      this.intervals.clear();
+    }
+  }
+};
+
 // Legacy compatibility functions (optimized)
 function getCachedAnalytics(type) {
   return cacheUtils.get('analytics', type, CONFIG.CACHE_DURATIONS.ANALYTICS);
@@ -279,35 +354,59 @@ const performanceUtils = {
     };
   },
 
-  // Memory usage optimization
+  // Enhanced memory usage optimization
   optimizeMemoryUsage() {
-    // Clean up caches periodically
-    setInterval(() => {
-      // Clear old cache entries
-      Object.values(enhancedCache).forEach(cache => {
-        if (cache instanceof Map && cache.size > 100) {
-          const keysToDelete = Array.from(cache.keys()).slice(0, 50);
-          keysToDelete.forEach(key => cache.delete(key));
+    const performCleanup = () => {
+      try {
+        // Clear old cache entries more efficiently
+        for (const [category, cache] of Object.entries(enhancedCache)) {
+          if (cache instanceof Map && cache.size > CONFIG.HISTORY_LIMIT) {
+            // Delete oldest entries efficiently
+            const keysToDelete = Math.min(cache.size - CONFIG.HISTORY_LIMIT + 20, 50);
+            const iterator = cache.keys();
+            for (let i = 0; i < keysToDelete; i++) {
+              const key = iterator.next().value;
+              if (key) cache.delete(key);
+            }
+          }
         }
-      });
-      
-      // Garbage collection hint
-      if (global.gc) {
-        global.gc();
+        
+        // Clean up operation logs if they exceed limit
+        if (adminSecurity.operationLogs.length > CONFIG.OPERATIONS_LOG_LIMIT) {
+          adminSecurity.operationLogs.splice(0, adminSecurity.operationLogs.length - CONFIG.OPERATIONS_LOG_LIMIT);
+        }
+        
+        // Garbage collection hint
+        if (global.gc) {
+          global.gc();
+        }
+      } catch (error) {
+        console.error('[MEMORY] Cleanup error:', error.message);
       }
-    }, 300000); // Every 5 minutes
+    };
+    
+    // Start memory cleanup with interval manager
+    utilityFunctions.intervalManager.create('memoryCleanup', performCleanup, 300000);
+    
+    // Return cleanup function for manual trigger
+    return {
+      cleanup: performCleanup,
+      stop: () => utilityFunctions.intervalManager.clear('memoryCleanup')
+    };
   },
 
-  // Response compression for better network performance
+  // Enhanced response compression for better network performance
   compressResponse(content) {
-    // Simple compression for HTML content
-    if (typeof content === 'string' && content.length > 1000) {
-      return content
-        .replace(/\s+/g, ' ')
-        .replace(/>\s+</g, '><')
-        .trim();
+    // Only compress strings longer than 1KB to avoid overhead
+    if (typeof content !== 'string' || content.length <= 1000) {
+      return content;
     }
-    return content;
+    
+    // Use more efficient single-pass compression
+    return content
+      .replace(/\s+/g, ' ')           // Collapse whitespace
+      .replace(/>\s+</g, '><')        // Remove spaces between tags
+      .replace(/^\s+|\s+$/g, '');     // Trim start and end
   },
 
   // Database optimization helpers
@@ -391,17 +490,9 @@ const routeUtils = {
     return this.generateUniqueCode(length + 1, database, maxAttempts);
   },
 
-  // Efficient random code generation
+  // Efficient random code generation - uses consolidated utility
   generateRandomCode(length) {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    const charsLength = chars.length;
-    
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * charsLength));
-    }
-    
-    return result;
+    return utilityFunctions.generateRandomString(length);
   },
 
   // Optimized slug generation with collision handling
@@ -467,10 +558,6 @@ function generateShortCode(length = 6) {
 
 function isValidUrl(string) {
   return routeUtils.validateURL(string);
-}
-
-function generateBlogId() {
-  return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
 function generateSlug(title) {
@@ -593,10 +680,6 @@ function recordBlogView(blogId, req) {
 }
 
 // Utility functions
-function generateBlogId() {
-  return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
 function generateSlug(title) {
   return routeUtils.generateUniqueSlug(title);
 }
@@ -852,7 +935,7 @@ function logAdminOperation(operation, ip, details = {}) {
     operation,
     ip,
     details,
-    id: Date.now() + Math.random()
+    id: utilityFunctions.generateUniqueId()
   };
   
   adminSecurity.operationLogs.push(logEntry);
@@ -3366,8 +3449,8 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res
       return;
     }
     
-    const randomAgent = agents[Math.floor(Math.random() * agents.length)];
-    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    const randomAgent = utilityFunctions.getRandomUserAgent(agents);
+    const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateClick(shortCode, randomAgent, randomIp)) {
       generated++;
@@ -3474,8 +3557,8 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req
     }
     
     const currentShortCode = urlCodes[currentUrlIndex];
-    const randomAgent = defaultUserAgents[Math.floor(Math.random() * defaultUserAgents.length)];
-    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    const randomAgent = utilityFunctions.getRandomUserAgent(defaultUserAgents);
+    const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateClick(currentShortCode, randomAgent, randomIp)) {
       totalGenerated++;
@@ -3835,8 +3918,8 @@ app.post('/admin/api/blog/automation/generate-views', requireAdvancedAuth, (req,
       return;
     }
     
-    const randomAgent = agents[Math.floor(Math.random() * agents.length)];
-    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    const randomAgent = utilityFunctions.getRandomUserAgent(agents);
+    const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateBlogView(blogId, randomAgent, randomIp)) {
       generated++;
@@ -3943,8 +4026,8 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAdvancedAuth, 
     }
     
     const currentPost = publishedPosts[currentPostIndex];
-    const randomAgent = defaultUserAgents[Math.floor(Math.random() * defaultUserAgents.length)];
-    const randomIp = `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    const randomAgent = utilityFunctions.getRandomUserAgent(defaultUserAgents);
+    const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateBlogView(currentPost.id, randomAgent, randomIp)) {
       totalGenerated++;
@@ -5007,7 +5090,7 @@ app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Title, content, and author are required' });
   }
   
-  const id = generateBlogId();
+  const id = utilityFunctions.generateBlogId();
   const slug = generateSlug(title);
   const now = new Date().toISOString();
   
@@ -5725,7 +5808,7 @@ app.post('/admin/api/announcements', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Invalid announcement type' });
   }
   
-  const id = 'announcement-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  const id = utilityFunctions.generateUniqueId('announcement-');
   const announcement = {
     id,
     title: title.trim(),
@@ -5784,6 +5867,25 @@ app.get('/api/urls', (req, res) => {
 app.listen(PORT, () => {
   console.log(`URL Shortener server is running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT} to use the URL shortener`);
+  
+  // Initialize performance optimizations
+  const memoryManager = performanceUtils.optimizeMemoryUsage();
+  console.log('[PERF] Memory optimization enabled');
+  
+  // Cleanup on process exit
+  process.on('SIGINT', () => {
+    console.log('\n[SHUTDOWN] Cleaning up resources...');
+    memoryManager.stop();
+    utilityFunctions.intervalManager.clearAll();
+    process.exit(0);
+  });
+  
+  process.on('SIGTERM', () => {
+    console.log('\n[SHUTDOWN] Graceful shutdown...');
+    memoryManager.stop();
+    utilityFunctions.intervalManager.clearAll();
+    process.exit(0);
+  });
 });
 
 module.exports = app;
