@@ -132,7 +132,7 @@ const CONFIG = {
   HISTORY_LIMIT: 100,
   OPERATIONS_LOG_LIMIT: 1000,
   BULK_CLICK_LIMIT: 50,
-  BULK_BLOG_VIEW_LIMIT: 30,
+  BULK_BLOG_VIEW_LIMIT: 3000,
   MAX_CACHE_SIZE: 50,
   MAX_URL_LENGTH: 2048,
   MAX_SHORT_CODE_LENGTH: 10,
@@ -158,6 +158,56 @@ const CONFIG = {
     NO_CACHE: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
   }
 };
+
+// Enhanced realistic user agent list for better simulation
+const REALISTIC_USER_AGENTS = [
+  // Chrome on Windows
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  
+  // Chrome on macOS
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  
+  // Safari on macOS
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15',
+  
+  // Firefox on Windows
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  
+  // Firefox on macOS
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
+  
+  // Chrome on Linux
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  
+  // Mobile Chrome on Android
+  'Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Linux; Android 12; SM-A525F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
+  
+  // Safari on iOS
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+  
+  // Edge on Windows
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+  
+  // Samsung Internet
+  'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36',
+  
+  // Opera
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0',
+  
+  // Tablet user agents
+  'Mozilla/5.0 (Linux; Android 13; Tab S8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+];
 
 // Enhanced multi-level caching system for optimal performance
 const enhancedCache = {
@@ -274,11 +324,38 @@ const utilityFunctions = {
   },
 
   generateRandomIP() {
+    // Generate realistic public IP addresses by avoiding private/reserved ranges
+    const publicRanges = [
+      // Various ISP and cloud provider ranges for realistic simulation
+      { first: [1, 4], last: [254, 254] },       // 1.x.x.x - 4.x.x.x
+      { first: [8, 8], last: [8, 8] },          // Google DNS range
+      { first: [13, 107], last: [13, 107] },    // Various public ranges
+      { first: [23, 20], last: [23, 255] },     // AWS/Cloud ranges
+      { first: [34, 192], last: [34, 255] },    // Google Cloud
+      { first: [35, 184], last: [35, 255] },    // Google Cloud
+      { first: [52, 0], last: [52, 255] },      // AWS ranges
+      { first: [54, 144], last: [54, 255] },    // AWS ranges
+      { first: [64, 233], last: [64, 233] },    // Google
+      { first: [66, 249], last: [66, 249] },    // Google
+      { first: [74, 125], last: [74, 125] },    // Google
+      { first: [108, 177], last: [108, 177] },  // Google
+      { first: [142, 250], last: [142, 251] },  // Google ranges
+      { first: [173, 194], last: [173, 194] },  // Google
+      { first: [199, 36], last: [199, 36] },    // Various ISPs
+      { first: [207, 46], last: [207, 46] },    // Microsoft
+      { first: [216, 58], last: [216, 58] }     // Google
+    ];
+    
+    const range = publicRanges[Math.floor(Math.random() * publicRanges.length)];
+    const firstOctet = Math.floor(Math.random() * (range.last[0] - range.first[0] + 1)) + range.first[0];
+    const secondOctet = range.first[1] === range.last[1] ? range.first[1] : 
+                       Math.floor(Math.random() * (range.last[1] - range.first[1] + 1)) + range.first[1];
+    
     return [
-      Math.floor(Math.random() * 255),
-      Math.floor(Math.random() * 255), 
-      Math.floor(Math.random() * 255),
-      Math.floor(Math.random() * 255)
+      firstOctet,
+      secondOctet,
+      Math.floor(Math.random() * 254) + 1,  // Avoid .0 and .255
+      Math.floor(Math.random() * 254) + 1
     ].join('.');
   },
 
@@ -360,6 +437,50 @@ const utilityFunctions = {
   safeParseInt(value, defaultValue = 0) {
     const parsed = parseInt(value, 10);
     return isNaN(parsed) ? defaultValue : parsed;
+  },
+
+  // Enhanced realistic simulation features
+  getRealisticDelay(baseDelay) {
+    // Add random variation to make timing more natural (±20% variation)
+    const variation = 0.2;
+    const minDelay = baseDelay * (1 - variation);
+    const maxDelay = baseDelay * (1 + variation);
+    return Math.floor(Math.random() * (maxDelay - minDelay) + minDelay);
+  },
+
+  getRandomDeviceInfo() {
+    const devices = [
+      { type: 'desktop', os: 'Windows', share: 0.4 },
+      { type: 'desktop', os: 'macOS', share: 0.15 },
+      { type: 'desktop', os: 'Linux', share: 0.05 },
+      { type: 'mobile', os: 'Android', share: 0.25 },
+      { type: 'mobile', os: 'iOS', share: 0.12 },
+      { type: 'tablet', os: 'iPad', share: 0.03 }
+    ];
+    
+    const random = Math.random();
+    let cumulative = 0;
+    
+    for (const device of devices) {
+      cumulative += device.share;
+      if (random <= cumulative) {
+        return device;
+      }
+    }
+    
+    return devices[0]; // fallback
+  },
+
+  simulateNaturalBehavior() {
+    // Simulate natural user behavior patterns
+    const behaviors = {
+      readTime: Math.floor(Math.random() * 120000) + 5000, // 5-125 seconds
+      scrollDepth: Math.floor(Math.random() * 100), // 0-100%
+      interactionTime: Math.floor(Math.random() * 300000) + 10000, // 10-310 seconds
+      bounceRate: Math.random() < 0.3 // 30% bounce rate
+    };
+    
+    return behaviors;
   }
 };
 
@@ -892,7 +1013,10 @@ const analyticsEngine = {
     // Set first timestamp efficiently
     if (!analytics[firstKey]) analytics[firstKey] = timestamp;
     
-    // Add to history with efficient data structure
+    // Add to history with efficient data structure (ensure array exists)
+    if (!analytics[historyKey]) {
+      analytics[historyKey] = [];
+    }
     analytics[historyKey].push({ timestamp, userAgent, ip });
     
     // Efficient memory management - batch removal for better performance
@@ -4630,21 +4754,12 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHand
   // Log the operation
   logAdminOperation('SINGLE_AUTOMATION', ip, { shortCode, clickCount: count, delay: actualDelay });
   
-  const defaultUserAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
-    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
-  ];
-  
-  const agents = userAgents.length > 0 ? userAgents : defaultUserAgents;
+  const agents = userAgents.length > 0 ? userAgents : REALISTIC_USER_AGENTS;
   let generated = 0;
   
-  // Generate clicks with delay
-  const generateInterval = setInterval(() => {
+  // Generate clicks with realistic delay variations
+  const generateClick = () => {
     if (generated >= count) {
-      clearInterval(generateInterval);
       return;
     }
     
@@ -4655,10 +4770,15 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHand
       generated++;
     }
     
-    if (generated >= count) {
-      clearInterval(generateInterval);
+    if (generated < count) {
+      // Use realistic delay with natural variation for next click
+      const nextDelay = utilityFunctions.getRealisticDelay(actualDelay);
+      setTimeout(generateClick, nextDelay);
     }
-  }, actualDelay);
+  };
+  
+  // Start the generation process
+  generateClick();
   
   res.json({ 
     message: `Started generating ${count} clicks for ${shortCode}`,
@@ -4736,14 +4856,6 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req
     securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD'
   });
   
-  const defaultUserAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
-    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
-  ];
-  
   let totalGenerated = 0;
   let currentUrlIndex = 0;
   let clicksForCurrentUrl = 0;
@@ -4756,7 +4868,7 @@ app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req
     }
     
     const currentShortCode = urlCodes[currentUrlIndex];
-    const randomAgent = utilityFunctions.getRandomUserAgent(defaultUserAgents);
+    const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
     const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateClick(currentShortCode, randomAgent, randomIp)) {
@@ -5099,15 +5211,7 @@ app.post('/admin/api/blog/automation/generate-views', requireAdvancedAuth, (req,
   // Log the operation
   logAdminOperation('SINGLE_BLOG_AUTOMATION', ip, { blogId, viewCount: count, delay: actualDelay });
   
-  const defaultUserAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
-    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
-  ];
-  
-  const agents = userAgents.length > 0 ? userAgents : defaultUserAgents;
+  const agents = userAgents.length > 0 ? userAgents : REALISTIC_USER_AGENTS;
   let generated = 0;
   
   // Generate views with delay
@@ -5205,14 +5309,6 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAdvancedAuth, 
     securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD'
   });
   
-  const defaultUserAgents = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15',
-    'Mozilla/5.0 (Android 11; Mobile; rv:93.0) Gecko/93.0 Firefox/93.0'
-  ];
-  
   let totalGenerated = 0;
   let currentPostIndex = 0;
   let viewsForCurrentPost = 0;
@@ -5225,7 +5321,7 @@ app.post('/admin/api/blog/automation/generate-bulk-views', requireAdvancedAuth, 
     }
     
     const currentPost = publishedPosts[currentPostIndex];
-    const randomAgent = utilityFunctions.getRandomUserAgent(defaultUserAgents);
+    const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
     const randomIp = utilityFunctions.generateRandomIP();
     
     if (simulateBlogView(currentPost.id, randomAgent, randomIp)) {
