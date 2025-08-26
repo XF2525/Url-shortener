@@ -9,6 +9,29 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Security headers middleware
+app.use((req, res, next) => {
+  // Basic security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // CORS headers for API endpoints
+  if (req.path.startsWith('/admin/api/') || req.path.startsWith('/api/')) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+  }
+  
+  next();
+});
+
 // Rate limiting store (simple in-memory implementation)
 const rateLimitStore = new Map();
 
@@ -1514,19 +1537,45 @@ function requireAuth(req, res, next) {
 
 // Routes
 
-// Health check endpoint for deployment monitoring
-app.get('/health', (req, res) => {
+// Enhanced health check endpoint for deployment monitoring
+app.get('/health', asyncHandler(async (req, res) => {
+  const memoryUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
   const healthStatus = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
+    uptime: Math.floor(process.uptime()),
     version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    memory: {
+      used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
+      total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB',
+      external: Math.round(memoryUsage.external / 1024 / 1024) + ' MB'
+    },
+    performance: {
+      userCPU: Math.round(cpuUsage.user / 1000) + ' ms',
+      systemCPU: Math.round(cpuUsage.system / 1000) + ' ms'
+    },
+    database: {
+      totalUrls: Object.keys(urlDatabase).length,
+      totalBlogs: Object.keys(blogDatabase).length,
+      totalAnnouncements: Object.keys(announcementDatabase).length
+    },
+    cache: {
+      analyticsCache: enhancedCache.analytics.lastUpdated > 0 ? 'active' : 'inactive',
+      templatesCache: enhancedCache.templates.size,
+      responsesCache: enhancedCache.responses.size
+    },
+    features: {
+      safelink: safelinkConfig.enabled,
+      eightPageRedirection: eightPageRedirectionConfig.enabled,
+      experimentalFeatures: 'active'
+    }
   };
   
   res.status(200).json(healthStatus);
-});
+}));
 
 // Home page
 app.get('/', (req, res) => {
@@ -4529,10 +4578,28 @@ function simulateBlogView(blogId, userAgent = 'BlogViewBot/1.0', ip = '127.0.0.1
   return true;
 }
 
-// Admin API endpoint for automated click generation
-app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res) => {
+// Enhanced admin API endpoint for automated click generation
+app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHandler(async (req, res) => {
   const { shortCode, clickCount = 1, userAgents = [], delay = 100 } = req.body;
   const ip = getClientIP(req);
+  
+  // Enhanced input validation
+  if (!shortCode || !validator.isValidShortCode(shortCode)) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Valid short code is required' 
+    });
+  }
+  
+  if (!urlDatabase[shortCode]) {
+    return res.status(404).json({ 
+      error: 'Not found', 
+      message: 'Short code does not exist' 
+    });
+  }
+  
+  const sanitizedClickCount = Math.min(Math.max(utilityFunctions.safeParseInt(clickCount, 1), 1), CONFIG.BULK_CLICK_LIMIT);
+  const sanitizedDelay = Math.max(utilityFunctions.safeParseInt(delay, 100), 50); // Minimum 50ms delay
   
   // Rate limiting check
   const rateLimitCheck = checkRateLimit(ip, 'single');
@@ -4543,10 +4610,6 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res
       code: 'RATE_LIMITED',
       retryAfter: rateLimitCheck.remainingTime || 3600
     });
-  }
-  
-  if (!shortCode || !urlDatabase[shortCode]) {
-    return res.status(400).json({ error: 'Valid short code is required' });
   }
   
   const count = Math.min(Math.max(parseInt(clickCount), 1), 1000); // Limit to 1000 clicks max
@@ -4605,7 +4668,7 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res
     securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
     progressiveDelay: actualDelay > baseDelay
   });
-});
+}));
 
 // Admin API endpoint for bulk click generation on all URLs
 app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req, res) => {
@@ -7767,6 +7830,31 @@ app.get('/api/announcements', (req, res) => {
 // API endpoint to get all URLs (for debugging/admin purposes)
 app.get('/api/urls', (req, res) => {
   res.json(urlDatabase);
+});
+
+// Global error handlers
+app.use((error, req, res, next) => {
+  console.error('Unhandled error:', error);
+  
+  if (res.headersSent) {
+    return next(error);
+  }
+  
+  res.status(500).json({
+    error: 'Internal server error',
+    message: 'An unexpected error occurred',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 404 handler for unmatched routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not found',
+    message: 'The requested resource was not found',
+    path: req.path,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Start server

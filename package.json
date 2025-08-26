@@ -9,6 +9,8 @@
     "prod": "NODE_ENV=production node app.js",
     "build": "npm install --production",
     "test": "node test.js",
+    "test:performance": "node test-performance.js",
+    "test:all": "npm test && npm run test:performance",
     "lint": "node -c app.js && echo 'Syntax check passed'",
     "validate": "npm run lint && npm test",
     "deploy:local": "npm run build && npm run prod",
