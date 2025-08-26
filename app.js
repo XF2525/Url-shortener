@@ -5,12 +5,116 @@ const escape = require('escape-html');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security enhancements
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting store (simple in-memory implementation)
+const rateLimitStore = new Map();
+
+// Rate limiting middleware
+function rateLimit(windowMs = 60000, maxRequests = 100) {
+  return (req, res, next) => {
+    const clientId = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    
+    // Clean old entries
+    if (rateLimitStore.size > 1000) {
+      for (const [key, requests] of rateLimitStore.entries()) {
+        const filtered = requests.filter(time => time > windowStart);
+        if (filtered.length === 0) {
+          rateLimitStore.delete(key);
+        } else {
+          rateLimitStore.set(key, filtered);
+        }
+      }
+    }
+    
+    // Get current requests for this client
+    const clientRequests = rateLimitStore.get(clientId) || [];
+    const recentRequests = clientRequests.filter(time => time > windowStart);
+    
+    if (recentRequests.length >= maxRequests) {
+      return res.status(429).json({ 
+        error: 'Too many requests', 
+        retryAfter: Math.ceil(windowMs / 1000)
+      });
+    }
+    
+    // Add current request
+    recentRequests.push(now);
+    rateLimitStore.set(clientId, recentRequests);
+    
+    next();
+  };
+}
+
+// Apply rate limiting to all routes
+app.use(rateLimit());
+
+// Enhanced input validation utilities
+const validator = {
+  isValidUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch (e) {
+      return false;
+    }
+  },
+  
+  sanitizeString(str, maxLength = 1000) {
+    if (typeof str !== 'string') return '';
+    return escape(str.trim().substring(0, maxLength));
+  },
+  
+  isValidShortCode(code) {
+    return typeof code === 'string' && /^[a-zA-Z0-9]{3,10}$/.test(code);
+  },
+  
+  isValidBlogId(id) {
+    return typeof id === 'string' && /^blog_\d+_[a-zA-Z0-9]+$/.test(id);
+  }
+};
+
+// Enhanced error handling
+function handleError(res, error, statusCode = 500) {
+  console.error('Error:', error.message);
+  console.error('Stack:', error.stack);
+  
+  const response = {
+    error: error.message || 'Internal server error',
+    timestamp: new Date().toISOString()
+  };
+  
+  if (process.env.NODE_ENV === 'development') {
+    response.stack = error.stack;
+  }
+  
+  res.status(statusCode).json(response);
+}
+
+// Async wrapper for better error handling
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(error => {
+      handleError(res, error);
+    });
+  };
+}
+
 // Enhanced configuration constants for maximum efficiency
 const CONFIG = {
   HISTORY_LIMIT: 100,
   OPERATIONS_LOG_LIMIT: 1000,
   BULK_CLICK_LIMIT: 50,
   BULK_BLOG_VIEW_LIMIT: 30,
+  MAX_CACHE_SIZE: 50,
+  MAX_URL_LENGTH: 2048,
+  MAX_SHORT_CODE_LENGTH: 10,
+  MAX_TITLE_LENGTH: 200,
+  MAX_CONTENT_LENGTH: 10000,
   BASE_DELAYS: {
     CLICK_GENERATION: 200,
     BLOG_VIEW_GENERATION: 300
@@ -25,9 +129,10 @@ const CONFIG = {
     STATIC_CONTENT: 60000 // 1 minute
   },
   RESPONSE_HEADERS: {
-    JSON: { 'Content-Type': 'application/json' },
+    JSON: { 'Content-Type': 'application/json; charset=utf-8' },
     HTML: { 'Content-Type': 'text/html; charset=utf-8' },
-    CACHE_CONTROL: { 'Cache-Control': 'public, max-age=300' }
+    CACHE_CONTROL: { 'Cache-Control': 'public, max-age=300' },
+    NO_CACHE: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
   }
 };
 
@@ -39,54 +144,97 @@ const enhancedCache = {
   responses: new Map()
 };
 
-// Optimized cache management utilities
+// Optimized cache management utilities with memory leak prevention
 const cacheUtils = {
   get(category, key, duration = CONFIG.CACHE_DURATIONS.ANALYTICS) {
-    const cache = enhancedCache[category];
-    if (!cache) return null;
-    
-    if (cache instanceof Map) {
-      const item = cache.get(key);
-      return item && (Date.now() - item.timestamp < duration) ? item.data : null;
+    try {
+      const cache = enhancedCache[category];
+      if (!cache) return null;
+      
+      if (cache instanceof Map) {
+        const item = cache.get(key);
+        return item && (Date.now() - item.timestamp < duration) ? item.data : null;
+      }
+      
+      return (Date.now() - cache.lastUpdated < duration) ? cache[key] : null;
+    } catch (error) {
+      console.error('Cache get error:', error.message);
+      return null;
     }
-    
-    return (Date.now() - cache.lastUpdated < duration) ? cache[key] : null;
   },
   
   set(category, key, data, isMap = true) {
-    const cache = enhancedCache[category];
-    if (!cache) return;
-    
-    if (isMap && cache instanceof Map) {
-      cache.set(key, { data, timestamp: Date.now() });
-      // Prevent memory bloat - keep only last 50 entries
-      if (cache.size > 50) {
-        const firstKey = cache.keys().next().value;
-        cache.delete(firstKey);
+    try {
+      const cache = enhancedCache[category];
+      if (!cache) return false;
+      
+      if (isMap && cache instanceof Map) {
+        cache.set(key, { data, timestamp: Date.now() });
+        // Prevent memory bloat - keep only last CONFIG.MAX_CACHE_SIZE entries
+        if (cache.size > CONFIG.MAX_CACHE_SIZE) {
+          const keysToDelete = Math.floor(CONFIG.MAX_CACHE_SIZE * 0.2); // Remove 20% of entries
+          const iterator = cache.keys();
+          for (let i = 0; i < keysToDelete; i++) {
+            const firstKey = iterator.next().value;
+            if (firstKey !== undefined) {
+              cache.delete(firstKey);
+            }
+          }
+        }
+      } else {
+        cache[key] = data;
+        cache.lastUpdated = Date.now();
       }
-    } else {
-      cache[key] = data;
-      cache.lastUpdated = Date.now();
+      return true;
+    } catch (error) {
+      console.error('Cache set error:', error.message);
+      return false;
     }
   },
   
   clear(category) {
-    const cache = enhancedCache[category];
-    if (cache instanceof Map) {
-      cache.clear();
-    } else if (cache) {
-      Object.keys(cache).forEach(key => {
-        if (key !== 'lastUpdated') delete cache[key];
+    try {
+      const cache = enhancedCache[category];
+      if (cache instanceof Map) {
+        cache.clear();
+      } else if (cache) {
+        Object.keys(cache).forEach(key => {
+          if (key !== 'lastUpdated') delete cache[key];
+        });
+        cache.lastUpdated = 0;
+      }
+      return true;
+    } catch (error) {
+      console.error('Cache clear error:', error.message);
+      return false;
+    }
+  },
+  
+  // Periodic cleanup to prevent memory leaks
+  cleanup() {
+    try {
+      const now = Date.now();
+      ['templates', 'staticContent', 'responses'].forEach(category => {
+        const cache = enhancedCache[category];
+        if (cache instanceof Map) {
+          for (const [key, item] of cache.entries()) {
+            if (now - item.timestamp > CONFIG.CACHE_DURATIONS.STATIC_CONTENT * 2) {
+              cache.delete(key);
+            }
+          }
+        }
       });
-      cache.lastUpdated = 0;
+    } catch (error) {
+      console.error('Cache cleanup error:', error.message);
     }
   }
 };
 
 // Optimized utility functions - consolidated for efficiency
 const utilityFunctions = {
-  // Random generation utilities
+  // Random generation utilities with enhanced validation
   generateRandomString(length = 6) {
+    if (length < 1 || length > 20) length = 6;
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     const charsLength = chars.length;
@@ -103,19 +251,34 @@ const utilityFunctions = {
   },
 
   generateRandomIP() {
-    return `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    return [
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255), 
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255)
+    ].join('.');
   },
 
   getRandomUserAgent(agents) {
+    if (!Array.isArray(agents) || agents.length === 0) {
+      return 'Mozilla/5.0 (compatible; URLShortener/1.0)';
+    }
     return agents[Math.floor(Math.random() * agents.length)];
   },
 
   generateUniqueId(prefix = '') {
-    return prefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    return prefix + timestamp + '_' + random;
   },
 
   // Debounce function for performance optimization
   debounce(func, wait) {
+    if (typeof func !== 'function') {
+      throw new Error('Debounce requires a function');
+    }
+    if (wait < 0) wait = 0;
+    
     let timeout;
     return function executedFunction(...args) {
       const later = () => {
@@ -132,6 +295,10 @@ const utilityFunctions = {
     intervals: new Map(),
     
     create(id, callback, delay) {
+      if (typeof callback !== 'function' || delay < 0) {
+        throw new Error('Invalid callback or delay');
+      }
+      
       // Clear existing interval with same ID
       if (this.intervals.has(id)) {
         clearInterval(this.intervals.get(id));
@@ -155,6 +322,21 @@ const utilityFunctions = {
       this.intervals.forEach(intervalId => clearInterval(intervalId));
       this.intervals.clear();
     }
+  },
+
+  // Safe JSON parsing
+  safeParse(str) {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Safe number parsing
+  safeParseInt(value, defaultValue = 0) {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? defaultValue : parsed;
   }
 };
 
@@ -167,14 +349,57 @@ function setCachedAnalytics(type, data) {
   cacheUtils.set('analytics', type, data, false);
 }
 
-// Whitelist of trusted domains for redirection
-const TRUSTED_DOMAINS = ['example.com']; // TODO: Update with your own domain(s)
+// Enhanced whitelist of trusted domains for redirection
+const TRUSTED_DOMAINS = [
+  'localhost',
+  '127.0.0.1',
+  'example.com',
+  'google.com',
+  'github.com',
+  // Add your own domain(s) here
+];
 
-// Helper to check if a given url is trusted (host matches whitelist)
+// Enhanced URL validation with security checks
 function isTrustedUrl(url) {
   try {
     const parsed = new URL(url);
-    return TRUSTED_DOMAINS.includes(parsed.hostname);
+    
+    // Check protocol
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+    
+    // Check for malicious patterns
+    const maliciousPatterns = [
+      /javascript:/i,
+      /data:/i,
+      /vbscript:/i,
+      /file:/i,
+      /ftp:/i
+    ];
+    
+    if (maliciousPatterns.some(pattern => pattern.test(url))) {
+      return false;
+    }
+    
+    // Check if domain is trusted
+    return TRUSTED_DOMAINS.some(domain => {
+      return parsed.hostname === domain || parsed.hostname.endsWith('.' + domain);
+    });
+  } catch (e) {
+    console.error('URL validation error:', e.message);
+    return false;
+  }
+}
+
+// Enhanced URL validation for general use
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.length > CONFIG.MAX_URL_LENGTH) return false;
+  
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
   } catch (e) {
     return false;
   }
@@ -329,8 +554,53 @@ const adminSecurity = {
   emergencyStop: false // Emergency stop for all automation
 };
 
-// Simple admin credentials (in production, use proper authentication)
+// Enhanced authentication with security improvements
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+
+// Active admin sessions tracking
+const adminSessions = new Map();
+
+// Authentication utilities
+const authUtils = {
+  generateToken() {
+    return utilityFunctions.generateRandomString(32);
+  },
+  
+  createSession(token) {
+    const session = {
+      token,
+      createdAt: Date.now(),
+      lastActivity: Date.now()
+    };
+    adminSessions.set(token, session);
+    return session;
+  },
+  
+  validateSession(token) {
+    const session = adminSessions.get(token);
+    if (!session) return false;
+    
+    const now = Date.now();
+    if (now - session.createdAt > SESSION_TIMEOUT) {
+      adminSessions.delete(token);
+      return false;
+    }
+    
+    // Update last activity
+    session.lastActivity = now;
+    return true;
+  },
+  
+  cleanupSessions() {
+    const now = Date.now();
+    for (const [token, session] of adminSessions.entries()) {
+      if (now - session.createdAt > SESSION_TIMEOUT) {
+        adminSessions.delete(token);
+      }
+    }
+  }
+};
 
 // Middleware
 // Enhanced performance monitoring and optimization utilities
@@ -1209,13 +1479,36 @@ function getCommonJS() {
 
 
 
-// Middleware to check admin authentication
+// Enhanced authentication middleware with session management
 function requireAuth(req, res, next) {
-  const auth = req.headers.authorization;
-  if (auth && auth === `Bearer ${ADMIN_PASSWORD}`) {
-    next();
-  } else {
-    res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Missing or invalid authorization header' 
+      });
+    }
+    
+    const token = auth.substring(7); // Remove 'Bearer ' prefix
+    
+    // Check if it's the master password (for initial login)
+    if (token === ADMIN_PASSWORD) {
+      return next();
+    }
+    
+    // Check session token
+    if (authUtils.validateSession(token)) {
+      return next();
+    }
+    
+    res.status(401).json({ 
+      error: 'Unauthorized', 
+      message: 'Invalid or expired session' 
+    });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication error' });
   }
 }
 
@@ -1598,62 +1891,119 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Shorten URL endpoint
-app.post('/shorten', (req, res) => {
-  try {
-    const { originalUrl, customCode } = req.body;
-    
-    // Validate input using utility function
-    const validationErrors = validateInput({
-      originalUrl: { required: true, type: 'string' }
-    }, req.body);
-    
-    if (validationErrors.length > 0) {
-      return sendError(res, validationErrors.join(', '));
-    }
-    
-    // Validate URL
-    if (!isValidUrl(originalUrl)) {
-      return sendError(res, 'Please provide a valid URL');
-    }
-    
-    // Check if custom code is provided and validate it
-    if (customCode) {
-      if (!/^[a-zA-Z0-9]{3,20}$/.test(customCode)) {
-        return sendError(res, 'Custom code must be 3-20 characters long and contain only letters and numbers');
-      }
-      
-      // Check if custom code already exists
-      if (urlDatabase[customCode]) {
-        return sendError(res, 'Custom code already exists. Please choose a different one.', 409);
-      }
-      
-      // Use custom code
-      urlDatabase[customCode] = originalUrl;
-      return sendSuccess(res, { shortCode: customCode, originalUrl, isCustom: true });
-    }
-    
-    // Check if URL already exists (for auto-generated codes only)
-    for (const [shortCode, url] of Object.entries(urlDatabase)) {
-      if (url === originalUrl) {
-        return sendSuccess(res, { shortCode, originalUrl, isCustom: false });
-      }
-    }
-    
-    // Generate unique short code
-    let shortCode;
-    do {
-      shortCode = generateShortCode();
-    } while (urlDatabase[shortCode]);
-    
-    // Store the mapping
-    urlDatabase[shortCode] = originalUrl;
-    
-    sendSuccess(res, { shortCode, originalUrl, isCustom: false });
-  } catch (error) {
-    createErrorHandler('shorten')(error, req, res, () => {});
+// Enhanced URL shortening endpoint with comprehensive validation
+app.post('/shorten', asyncHandler(async (req, res) => {
+  const { originalUrl, customCode } = req.body;
+  
+  // Enhanced validation
+  if (!originalUrl || typeof originalUrl !== 'string') {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'originalUrl is required and must be a string' 
+    });
   }
-});
+  
+  // Sanitize and validate URL
+  const sanitizedUrl = originalUrl.trim();
+  if (!isValidUrl(sanitizedUrl)) {
+    return res.status(400).json({ 
+      error: 'Invalid URL', 
+      message: 'Please provide a valid HTTP or HTTPS URL' 
+    });
+  }
+  
+  // Check URL length
+  if (sanitizedUrl.length > CONFIG.MAX_URL_LENGTH) {
+    return res.status(400).json({ 
+      error: 'URL too long', 
+      message: `URL must be less than ${CONFIG.MAX_URL_LENGTH} characters` 
+    });
+  }
+  
+  // Validate custom code if provided
+  if (customCode) {
+    const sanitizedCode = validator.sanitizeString(customCode, CONFIG.MAX_SHORT_CODE_LENGTH);
+    
+    if (!validator.isValidShortCode(sanitizedCode)) {
+      return res.status(400).json({ 
+        error: 'Invalid custom code', 
+        message: 'Custom code must be 3-10 characters long and contain only letters and numbers' 
+      });
+    }
+    
+    // Check if custom code already exists
+    if (urlDatabase[sanitizedCode]) {
+      return res.status(409).json({ 
+        error: 'Code already exists', 
+        message: 'Custom code already exists. Please choose a different one.' 
+      });
+    }
+    
+    // Store with custom code
+    urlDatabase[sanitizedCode] = sanitizedUrl;
+    urlAnalytics[sanitizedCode] = {
+      clicks: 0,
+      createdAt: new Date().toISOString(),
+      lastAccessed: null,
+      referrers: {},
+      userAgents: {},
+      isCustom: true
+    };
+    
+    return res.json({ 
+      shortCode: sanitizedCode, 
+      originalUrl: sanitizedUrl, 
+      isCustom: true,
+      shortUrl: `${req.protocol}://${req.get('host')}/${sanitizedCode}`
+    });
+  }
+  
+  // Check if URL already exists (for auto-generated codes only)
+  for (const [shortCode, url] of Object.entries(urlDatabase)) {
+    if (url === sanitizedUrl && urlAnalytics[shortCode]?.isCustom !== true) {
+      return res.json({ 
+        shortCode, 
+        originalUrl: sanitizedUrl, 
+        isExisting: true,
+        shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`
+      });
+    }
+  }
+  
+  // Generate unique short code
+  let shortCode;
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  do {
+    shortCode = utilityFunctions.generateRandomString(6);
+    attempts++;
+  } while (urlDatabase[shortCode] && attempts < maxAttempts);
+  
+  if (attempts >= maxAttempts) {
+    return res.status(500).json({ 
+      error: 'Generation failed', 
+      message: 'Failed to generate unique short code. Please try again.' 
+    });
+  }
+  
+  // Store the URL
+  urlDatabase[shortCode] = sanitizedUrl;
+  urlAnalytics[shortCode] = {
+    clicks: 0,
+    createdAt: new Date().toISOString(),
+    lastAccessed: null,
+    referrers: {},
+    userAgents: {},
+    isCustom: false
+  };
+  
+  res.json({ 
+    shortCode, 
+    originalUrl: sanitizedUrl,
+    shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`
+  });
+}));
 
 // QR Code generation endpoint
 app.get('/qr/:shortCode', (req, res) => {
@@ -2038,16 +2388,45 @@ app.get('/admin', (req, res) => {
   `);
 });
 
-// Admin login endpoint
-app.post('/admin/login', (req, res) => {
+// Enhanced admin login endpoint with rate limiting and security
+app.post('/admin/login', rateLimit(60000, 5), asyncHandler(async (req, res) => {
   const { password } = req.body;
   
-  if (password === ADMIN_PASSWORD) {
-    res.json({ token: ADMIN_PASSWORD, message: 'Login successful' });
-  } else {
-    res.status(401).json({ error: 'Invalid password' });
+  // Input validation
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Password is required and must be a string' 
+    });
   }
-});
+  
+  // Rate limiting for failed attempts
+  const clientId = req.ip || req.connection.remoteAddress;
+  const attemptKey = `login_attempts_${clientId}`;
+  
+  if (password === ADMIN_PASSWORD) {
+    // Generate session token
+    const sessionToken = authUtils.generateToken();
+    authUtils.createSession(sessionToken);
+    
+    // Log successful login
+    console.log(`[AUTH] Successful admin login from ${clientId} at ${new Date().toISOString()}`);
+    
+    res.json({ 
+      token: sessionToken, 
+      message: 'Login successful',
+      expiresIn: SESSION_TIMEOUT / 1000 // seconds
+    });
+  } else {
+    // Log failed attempt
+    console.warn(`[AUTH] Failed admin login attempt from ${clientId} at ${new Date().toISOString()}`);
+    
+    res.status(401).json({ 
+      error: 'Invalid credentials', 
+      message: 'Incorrect password' 
+    });
+  }
+}));
 
 // Admin dashboard
 app.get('/admin/dashboard', (req, res) => {
@@ -6519,15 +6898,52 @@ app.get('/admin/api/blog/posts', requireAuth, (req, res) => {
   res.json(blogDatabase);
 });
 
-app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
+app.post('/admin/api/blog/posts', requireAuth, asyncHandler(async (req, res) => {
   const { title, content, author, published } = req.body;
   
-  if (!title || !content || !author) {
-    return res.status(400).json({ error: 'Title, content, and author are required' });
+  // Enhanced input validation
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Title is required and must be a non-empty string' 
+    });
+  }
+  
+  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Content is required and must be a non-empty string' 
+    });
+  }
+  
+  if (!author || typeof author !== 'string' || author.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Author is required and must be a non-empty string' 
+    });
+  }
+  
+  // Sanitize and validate length
+  const sanitizedTitle = validator.sanitizeString(title, CONFIG.MAX_TITLE_LENGTH);
+  const sanitizedContent = validator.sanitizeString(content, CONFIG.MAX_CONTENT_LENGTH);
+  const sanitizedAuthor = validator.sanitizeString(author, 100);
+  
+  if (sanitizedTitle.length < 3) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Title must be at least 3 characters long' 
+    });
+  }
+  
+  if (sanitizedContent.length < 10) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Content must be at least 10 characters long' 
+    });
   }
   
   const id = utilityFunctions.generateBlogId();
-  const slug = generateSlug(title);
+  const slug = generateSlug(sanitizedTitle);
   const now = new Date().toISOString();
   
   // Ensure slug is unique
@@ -6540,9 +6956,9 @@ app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
   
   const post = {
     id,
-    title,
-    content,
-    author,
+    title: sanitizedTitle,
+    content: sanitizedContent,
+    author: sanitizedAuthor,
     published: Boolean(published),
     slug: finalSlug,
     createdAt: now,
@@ -6551,7 +6967,7 @@ app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
   
   blogDatabase[id] = post;
   res.json(post);
-});
+}));
 
 app.put('/admin/api/blog/posts/:id', requireAuth, (req, res) => {
   const { id } = req.params;
@@ -7147,12 +7563,60 @@ function generateSafelinkPage(templateId, template, targetUrl, shortCode) {
 </html>`;
 }
 
-// Redirect endpoint (Modified to support SafeLink)
-app.get('/:shortCode', (req, res) => {
+// Enhanced redirect endpoint with security validation
+app.get('/:shortCode', asyncHandler(async (req, res) => {
   const { shortCode } = req.params;
+  
+  // Validate shortCode format
+  if (!validator.isValidShortCode(shortCode)) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invalid Short Code</title>
+          <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: #dc3545; }
+          </style>
+      </head>
+      <body>
+          <h1 class="error">Invalid Short Code</h1>
+          <p>The provided short code format is invalid.</p>
+          <a href="/">← Go back to homepage</a>
+      </body>
+      </html>
+    `);
+  }
+  
   const originalUrl = urlDatabase[shortCode];
   
   if (originalUrl) {
+    // Validate URL before redirecting (security check)
+    if (!isValidUrl(originalUrl)) {
+      console.error(`Invalid URL found for shortCode ${shortCode}:`, originalUrl);
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invalid Destination</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <h1 class="error">Invalid Destination</h1>
+            <p>The destination URL is invalid or potentially malicious.</p>
+            <a href="/">← Go back to homepage</a>
+        </body>
+        </html>
+      `);
+    }
+    
     // Check if 8-Page Redirection is enabled
     if (eightPageRedirectionConfig.enabled) {
       const enabledPages = eightPageRedirectionConfig.pages.filter(page => page.enabled);
@@ -7173,8 +7637,14 @@ app.get('/:shortCode', (req, res) => {
       }
     }
     
-    // Direct redirect if SafeLink is disabled or template is disabled
-    recordClick(shortCode, req);
+    // Record analytics and redirect
+    try {
+      recordClick(shortCode, req);
+    } catch (error) {
+      console.error('Error recording click:', error.message);
+      // Continue with redirect even if analytics fail
+    }
+    
     res.redirect(originalUrl);
   } else {
     res.status(404).send(`
@@ -7221,7 +7691,7 @@ app.get('/:shortCode', (req, res) => {
       </html>
     `);
   }
-});
+}));
 
 // ========================================
 // ANNOUNCEMENTS API ROUTES
@@ -7308,20 +7778,43 @@ app.listen(PORT, () => {
   const memoryManager = performanceUtils.optimizeMemoryUsage();
   console.log('[PERF] Memory optimization enabled');
   
-  // Cleanup on process exit
-  process.on('SIGINT', () => {
-    console.log('\n[SHUTDOWN] Cleaning up resources...');
-    memoryManager.stop();
-    utilityFunctions.intervalManager.clearAll();
-    process.exit(0);
-  });
+  // Start periodic cleanup tasks
+  const cleanupInterval = setInterval(() => {
+    try {
+      cacheUtils.cleanup();
+      authUtils.cleanupSessions();
+      
+      // Cleanup rate limiting store
+      if (rateLimitStore.size > 10000) {
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000;
+        for (const [key, requests] of rateLimitStore.entries()) {
+          const filtered = requests.filter(time => time > oneHourAgo);
+          if (filtered.length === 0) {
+            rateLimitStore.delete(key);
+          } else {
+            rateLimitStore.set(key, filtered);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Cleanup error:', error.message);
+    }
+  }, 60000); // Run cleanup every minute
   
-  process.on('SIGTERM', () => {
-    console.log('\n[SHUTDOWN] Graceful shutdown...');
+  console.log('[PERF] Periodic cleanup tasks started');
+  
+  // Cleanup on process exit
+  const gracefulShutdown = () => {
+    console.log('\n[SHUTDOWN] Cleaning up resources...');
+    clearInterval(cleanupInterval);
     memoryManager.stop();
     utilityFunctions.intervalManager.clearAll();
     process.exit(0);
-  });
+  };
+  
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
 });
 
 module.exports = app;
