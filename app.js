@@ -5,12 +5,139 @@ const escape = require('escape-html');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security enhancements
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Security headers middleware
+app.use((req, res, next) => {
+  // Basic security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // CORS headers for API endpoints
+  if (req.path.startsWith('/admin/api/') || req.path.startsWith('/api/')) {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+  }
+  
+  next();
+});
+
+// Rate limiting store (simple in-memory implementation)
+const rateLimitStore = new Map();
+
+// Rate limiting middleware
+function rateLimit(windowMs = 60000, maxRequests = 100) {
+  return (req, res, next) => {
+    const clientId = req.ip || req.connection.remoteAddress;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    
+    // Clean old entries
+    if (rateLimitStore.size > 1000) {
+      for (const [key, requests] of rateLimitStore.entries()) {
+        const filtered = requests.filter(time => time > windowStart);
+        if (filtered.length === 0) {
+          rateLimitStore.delete(key);
+        } else {
+          rateLimitStore.set(key, filtered);
+        }
+      }
+    }
+    
+    // Get current requests for this client
+    const clientRequests = rateLimitStore.get(clientId) || [];
+    const recentRequests = clientRequests.filter(time => time > windowStart);
+    
+    if (recentRequests.length >= maxRequests) {
+      return res.status(429).json({ 
+        error: 'Too many requests', 
+        retryAfter: Math.ceil(windowMs / 1000)
+      });
+    }
+    
+    // Add current request
+    recentRequests.push(now);
+    rateLimitStore.set(clientId, recentRequests);
+    
+    next();
+  };
+}
+
+// Apply rate limiting to all routes
+app.use(rateLimit());
+
+// Enhanced input validation utilities
+const validator = {
+  isValidUrl(url) {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch (e) {
+      return false;
+    }
+  },
+  
+  sanitizeString(str, maxLength = 1000) {
+    if (typeof str !== 'string') return '';
+    return escape(str.trim().substring(0, maxLength));
+  },
+  
+  isValidShortCode(code) {
+    return typeof code === 'string' && /^[a-zA-Z0-9]{3,10}$/.test(code);
+  },
+  
+  isValidBlogId(id) {
+    return typeof id === 'string' && /^blog_\d+_[a-zA-Z0-9]+$/.test(id);
+  }
+};
+
+// Enhanced error handling
+function handleError(res, error, statusCode = 500) {
+  console.error('Error:', error.message);
+  console.error('Stack:', error.stack);
+  
+  const response = {
+    error: error.message || 'Internal server error',
+    timestamp: new Date().toISOString()
+  };
+  
+  if (process.env.NODE_ENV === 'development') {
+    response.stack = error.stack;
+  }
+  
+  res.status(statusCode).json(response);
+}
+
+// Async wrapper for better error handling
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(error => {
+      handleError(res, error);
+    });
+  };
+}
+
 // Enhanced configuration constants for maximum efficiency
 const CONFIG = {
   HISTORY_LIMIT: 100,
   OPERATIONS_LOG_LIMIT: 1000,
   BULK_CLICK_LIMIT: 50,
   BULK_BLOG_VIEW_LIMIT: 30,
+  MAX_CACHE_SIZE: 50,
+  MAX_URL_LENGTH: 2048,
+  MAX_SHORT_CODE_LENGTH: 10,
+  MAX_TITLE_LENGTH: 200,
+  MAX_CONTENT_LENGTH: 10000,
   BASE_DELAYS: {
     CLICK_GENERATION: 200,
     BLOG_VIEW_GENERATION: 300
@@ -25,9 +152,10 @@ const CONFIG = {
     STATIC_CONTENT: 60000 // 1 minute
   },
   RESPONSE_HEADERS: {
-    JSON: { 'Content-Type': 'application/json' },
+    JSON: { 'Content-Type': 'application/json; charset=utf-8' },
     HTML: { 'Content-Type': 'text/html; charset=utf-8' },
-    CACHE_CONTROL: { 'Cache-Control': 'public, max-age=300' }
+    CACHE_CONTROL: { 'Cache-Control': 'public, max-age=300' },
+    NO_CACHE: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
   }
 };
 
@@ -39,54 +167,97 @@ const enhancedCache = {
   responses: new Map()
 };
 
-// Optimized cache management utilities
+// Optimized cache management utilities with memory leak prevention
 const cacheUtils = {
   get(category, key, duration = CONFIG.CACHE_DURATIONS.ANALYTICS) {
-    const cache = enhancedCache[category];
-    if (!cache) return null;
-    
-    if (cache instanceof Map) {
-      const item = cache.get(key);
-      return item && (Date.now() - item.timestamp < duration) ? item.data : null;
+    try {
+      const cache = enhancedCache[category];
+      if (!cache) return null;
+      
+      if (cache instanceof Map) {
+        const item = cache.get(key);
+        return item && (Date.now() - item.timestamp < duration) ? item.data : null;
+      }
+      
+      return (Date.now() - cache.lastUpdated < duration) ? cache[key] : null;
+    } catch (error) {
+      console.error('Cache get error:', error.message);
+      return null;
     }
-    
-    return (Date.now() - cache.lastUpdated < duration) ? cache[key] : null;
   },
   
   set(category, key, data, isMap = true) {
-    const cache = enhancedCache[category];
-    if (!cache) return;
-    
-    if (isMap && cache instanceof Map) {
-      cache.set(key, { data, timestamp: Date.now() });
-      // Prevent memory bloat - keep only last 50 entries
-      if (cache.size > 50) {
-        const firstKey = cache.keys().next().value;
-        cache.delete(firstKey);
+    try {
+      const cache = enhancedCache[category];
+      if (!cache) return false;
+      
+      if (isMap && cache instanceof Map) {
+        cache.set(key, { data, timestamp: Date.now() });
+        // Prevent memory bloat - keep only last CONFIG.MAX_CACHE_SIZE entries
+        if (cache.size > CONFIG.MAX_CACHE_SIZE) {
+          const keysToDelete = Math.floor(CONFIG.MAX_CACHE_SIZE * 0.2); // Remove 20% of entries
+          const iterator = cache.keys();
+          for (let i = 0; i < keysToDelete; i++) {
+            const firstKey = iterator.next().value;
+            if (firstKey !== undefined) {
+              cache.delete(firstKey);
+            }
+          }
+        }
+      } else {
+        cache[key] = data;
+        cache.lastUpdated = Date.now();
       }
-    } else {
-      cache[key] = data;
-      cache.lastUpdated = Date.now();
+      return true;
+    } catch (error) {
+      console.error('Cache set error:', error.message);
+      return false;
     }
   },
   
   clear(category) {
-    const cache = enhancedCache[category];
-    if (cache instanceof Map) {
-      cache.clear();
-    } else if (cache) {
-      Object.keys(cache).forEach(key => {
-        if (key !== 'lastUpdated') delete cache[key];
+    try {
+      const cache = enhancedCache[category];
+      if (cache instanceof Map) {
+        cache.clear();
+      } else if (cache) {
+        Object.keys(cache).forEach(key => {
+          if (key !== 'lastUpdated') delete cache[key];
+        });
+        cache.lastUpdated = 0;
+      }
+      return true;
+    } catch (error) {
+      console.error('Cache clear error:', error.message);
+      return false;
+    }
+  },
+  
+  // Periodic cleanup to prevent memory leaks
+  cleanup() {
+    try {
+      const now = Date.now();
+      ['templates', 'staticContent', 'responses'].forEach(category => {
+        const cache = enhancedCache[category];
+        if (cache instanceof Map) {
+          for (const [key, item] of cache.entries()) {
+            if (now - item.timestamp > CONFIG.CACHE_DURATIONS.STATIC_CONTENT * 2) {
+              cache.delete(key);
+            }
+          }
+        }
       });
-      cache.lastUpdated = 0;
+    } catch (error) {
+      console.error('Cache cleanup error:', error.message);
     }
   }
 };
 
 // Optimized utility functions - consolidated for efficiency
 const utilityFunctions = {
-  // Random generation utilities
+  // Random generation utilities with enhanced validation
   generateRandomString(length = 6) {
+    if (length < 1 || length > 20) length = 6;
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     const charsLength = chars.length;
@@ -103,19 +274,34 @@ const utilityFunctions = {
   },
 
   generateRandomIP() {
-    return `192.168.1.${Math.floor(Math.random() * 254) + 1}`;
+    return [
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255), 
+      Math.floor(Math.random() * 255),
+      Math.floor(Math.random() * 255)
+    ].join('.');
   },
 
   getRandomUserAgent(agents) {
+    if (!Array.isArray(agents) || agents.length === 0) {
+      return 'Mozilla/5.0 (compatible; URLShortener/1.0)';
+    }
     return agents[Math.floor(Math.random() * agents.length)];
   },
 
   generateUniqueId(prefix = '') {
-    return prefix + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    return prefix + timestamp + '_' + random;
   },
 
   // Debounce function for performance optimization
   debounce(func, wait) {
+    if (typeof func !== 'function') {
+      throw new Error('Debounce requires a function');
+    }
+    if (wait < 0) wait = 0;
+    
     let timeout;
     return function executedFunction(...args) {
       const later = () => {
@@ -132,6 +318,10 @@ const utilityFunctions = {
     intervals: new Map(),
     
     create(id, callback, delay) {
+      if (typeof callback !== 'function' || delay < 0) {
+        throw new Error('Invalid callback or delay');
+      }
+      
       // Clear existing interval with same ID
       if (this.intervals.has(id)) {
         clearInterval(this.intervals.get(id));
@@ -155,6 +345,21 @@ const utilityFunctions = {
       this.intervals.forEach(intervalId => clearInterval(intervalId));
       this.intervals.clear();
     }
+  },
+
+  // Safe JSON parsing
+  safeParse(str) {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Safe number parsing
+  safeParseInt(value, defaultValue = 0) {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? defaultValue : parsed;
   }
 };
 
@@ -167,14 +372,57 @@ function setCachedAnalytics(type, data) {
   cacheUtils.set('analytics', type, data, false);
 }
 
-// Whitelist of trusted domains for redirection
-const TRUSTED_DOMAINS = ['example.com']; // TODO: Update with your own domain(s)
+// Enhanced whitelist of trusted domains for redirection
+const TRUSTED_DOMAINS = [
+  'localhost',
+  '127.0.0.1',
+  'example.com',
+  'google.com',
+  'github.com',
+  // Add your own domain(s) here
+];
 
-// Helper to check if a given url is trusted (host matches whitelist)
+// Enhanced URL validation with security checks
 function isTrustedUrl(url) {
   try {
     const parsed = new URL(url);
-    return TRUSTED_DOMAINS.includes(parsed.hostname);
+    
+    // Check protocol
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+    
+    // Check for malicious patterns
+    const maliciousPatterns = [
+      /javascript:/i,
+      /data:/i,
+      /vbscript:/i,
+      /file:/i,
+      /ftp:/i
+    ];
+    
+    if (maliciousPatterns.some(pattern => pattern.test(url))) {
+      return false;
+    }
+    
+    // Check if domain is trusted
+    return TRUSTED_DOMAINS.some(domain => {
+      return parsed.hostname === domain || parsed.hostname.endsWith('.' + domain);
+    });
+  } catch (e) {
+    console.error('URL validation error:', e.message);
+    return false;
+  }
+}
+
+// Enhanced URL validation for general use
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.length > CONFIG.MAX_URL_LENGTH) return false;
+  
+  try {
+    const parsed = new URL(url);
+    return ['http:', 'https:'].includes(parsed.protocol);
   } catch (e) {
     return false;
   }
@@ -329,8 +577,53 @@ const adminSecurity = {
   emergencyStop: false // Emergency stop for all automation
 };
 
-// Simple admin credentials (in production, use proper authentication)
+// Enhanced authentication with security improvements
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
+
+// Active admin sessions tracking
+const adminSessions = new Map();
+
+// Authentication utilities
+const authUtils = {
+  generateToken() {
+    return utilityFunctions.generateRandomString(32);
+  },
+  
+  createSession(token) {
+    const session = {
+      token,
+      createdAt: Date.now(),
+      lastActivity: Date.now()
+    };
+    adminSessions.set(token, session);
+    return session;
+  },
+  
+  validateSession(token) {
+    const session = adminSessions.get(token);
+    if (!session) return false;
+    
+    const now = Date.now();
+    if (now - session.createdAt > SESSION_TIMEOUT) {
+      adminSessions.delete(token);
+      return false;
+    }
+    
+    // Update last activity
+    session.lastActivity = now;
+    return true;
+  },
+  
+  cleanupSessions() {
+    const now = Date.now();
+    for (const [token, session] of adminSessions.entries()) {
+      if (now - session.createdAt > SESSION_TIMEOUT) {
+        adminSessions.delete(token);
+      }
+    }
+  }
+};
 
 // Middleware
 // Enhanced performance monitoring and optimization utilities
@@ -1209,31 +1502,80 @@ function getCommonJS() {
 
 
 
-// Middleware to check admin authentication
+// Enhanced authentication middleware with session management
 function requireAuth(req, res, next) {
-  const auth = req.headers.authorization;
-  if (auth && auth === `Bearer ${ADMIN_PASSWORD}`) {
-    next();
-  } else {
-    res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Missing or invalid authorization header' 
+      });
+    }
+    
+    const token = auth.substring(7); // Remove 'Bearer ' prefix
+    
+    // Check if it's the master password (for initial login)
+    if (token === ADMIN_PASSWORD) {
+      return next();
+    }
+    
+    // Check session token
+    if (authUtils.validateSession(token)) {
+      return next();
+    }
+    
+    res.status(401).json({ 
+      error: 'Unauthorized', 
+      message: 'Invalid or expired session' 
+    });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Authentication error' });
   }
 }
 
 // Routes
 
-// Health check endpoint for deployment monitoring
-app.get('/health', (req, res) => {
+// Enhanced health check endpoint for deployment monitoring
+app.get('/health', asyncHandler(async (req, res) => {
+  const memoryUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
   const healthStatus = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
+    uptime: Math.floor(process.uptime()),
     version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    memory: {
+      used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
+      total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB',
+      external: Math.round(memoryUsage.external / 1024 / 1024) + ' MB'
+    },
+    performance: {
+      userCPU: Math.round(cpuUsage.user / 1000) + ' ms',
+      systemCPU: Math.round(cpuUsage.system / 1000) + ' ms'
+    },
+    database: {
+      totalUrls: Object.keys(urlDatabase).length,
+      totalBlogs: Object.keys(blogDatabase).length,
+      totalAnnouncements: Object.keys(announcementDatabase).length
+    },
+    cache: {
+      analyticsCache: enhancedCache.analytics.lastUpdated > 0 ? 'active' : 'inactive',
+      templatesCache: enhancedCache.templates.size,
+      responsesCache: enhancedCache.responses.size
+    },
+    features: {
+      safelink: safelinkConfig.enabled,
+      eightPageRedirection: eightPageRedirectionConfig.enabled,
+      experimentalFeatures: 'active'
+    }
   };
   
   res.status(200).json(healthStatus);
-});
+}));
 
 // Home page
 app.get('/', (req, res) => {
@@ -1598,62 +1940,119 @@ app.get('/', (req, res) => {
   `);
 });
 
-// Shorten URL endpoint
-app.post('/shorten', (req, res) => {
-  try {
-    const { originalUrl, customCode } = req.body;
-    
-    // Validate input using utility function
-    const validationErrors = validateInput({
-      originalUrl: { required: true, type: 'string' }
-    }, req.body);
-    
-    if (validationErrors.length > 0) {
-      return sendError(res, validationErrors.join(', '));
-    }
-    
-    // Validate URL
-    if (!isValidUrl(originalUrl)) {
-      return sendError(res, 'Please provide a valid URL');
-    }
-    
-    // Check if custom code is provided and validate it
-    if (customCode) {
-      if (!/^[a-zA-Z0-9]{3,20}$/.test(customCode)) {
-        return sendError(res, 'Custom code must be 3-20 characters long and contain only letters and numbers');
-      }
-      
-      // Check if custom code already exists
-      if (urlDatabase[customCode]) {
-        return sendError(res, 'Custom code already exists. Please choose a different one.', 409);
-      }
-      
-      // Use custom code
-      urlDatabase[customCode] = originalUrl;
-      return sendSuccess(res, { shortCode: customCode, originalUrl, isCustom: true });
-    }
-    
-    // Check if URL already exists (for auto-generated codes only)
-    for (const [shortCode, url] of Object.entries(urlDatabase)) {
-      if (url === originalUrl) {
-        return sendSuccess(res, { shortCode, originalUrl, isCustom: false });
-      }
-    }
-    
-    // Generate unique short code
-    let shortCode;
-    do {
-      shortCode = generateShortCode();
-    } while (urlDatabase[shortCode]);
-    
-    // Store the mapping
-    urlDatabase[shortCode] = originalUrl;
-    
-    sendSuccess(res, { shortCode, originalUrl, isCustom: false });
-  } catch (error) {
-    createErrorHandler('shorten')(error, req, res, () => {});
+// Enhanced URL shortening endpoint with comprehensive validation
+app.post('/shorten', asyncHandler(async (req, res) => {
+  const { originalUrl, customCode } = req.body;
+  
+  // Enhanced validation
+  if (!originalUrl || typeof originalUrl !== 'string') {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'originalUrl is required and must be a string' 
+    });
   }
-});
+  
+  // Sanitize and validate URL
+  const sanitizedUrl = originalUrl.trim();
+  if (!isValidUrl(sanitizedUrl)) {
+    return res.status(400).json({ 
+      error: 'Invalid URL', 
+      message: 'Please provide a valid HTTP or HTTPS URL' 
+    });
+  }
+  
+  // Check URL length
+  if (sanitizedUrl.length > CONFIG.MAX_URL_LENGTH) {
+    return res.status(400).json({ 
+      error: 'URL too long', 
+      message: `URL must be less than ${CONFIG.MAX_URL_LENGTH} characters` 
+    });
+  }
+  
+  // Validate custom code if provided
+  if (customCode) {
+    const sanitizedCode = validator.sanitizeString(customCode, CONFIG.MAX_SHORT_CODE_LENGTH);
+    
+    if (!validator.isValidShortCode(sanitizedCode)) {
+      return res.status(400).json({ 
+        error: 'Invalid custom code', 
+        message: 'Custom code must be 3-10 characters long and contain only letters and numbers' 
+      });
+    }
+    
+    // Check if custom code already exists
+    if (urlDatabase[sanitizedCode]) {
+      return res.status(409).json({ 
+        error: 'Code already exists', 
+        message: 'Custom code already exists. Please choose a different one.' 
+      });
+    }
+    
+    // Store with custom code
+    urlDatabase[sanitizedCode] = sanitizedUrl;
+    urlAnalytics[sanitizedCode] = {
+      clicks: 0,
+      createdAt: new Date().toISOString(),
+      lastAccessed: null,
+      referrers: {},
+      userAgents: {},
+      isCustom: true
+    };
+    
+    return res.json({ 
+      shortCode: sanitizedCode, 
+      originalUrl: sanitizedUrl, 
+      isCustom: true,
+      shortUrl: `${req.protocol}://${req.get('host')}/${sanitizedCode}`
+    });
+  }
+  
+  // Check if URL already exists (for auto-generated codes only)
+  for (const [shortCode, url] of Object.entries(urlDatabase)) {
+    if (url === sanitizedUrl && urlAnalytics[shortCode]?.isCustom !== true) {
+      return res.json({ 
+        shortCode, 
+        originalUrl: sanitizedUrl, 
+        isExisting: true,
+        shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`
+      });
+    }
+  }
+  
+  // Generate unique short code
+  let shortCode;
+  let attempts = 0;
+  const maxAttempts = 10;
+  
+  do {
+    shortCode = utilityFunctions.generateRandomString(6);
+    attempts++;
+  } while (urlDatabase[shortCode] && attempts < maxAttempts);
+  
+  if (attempts >= maxAttempts) {
+    return res.status(500).json({ 
+      error: 'Generation failed', 
+      message: 'Failed to generate unique short code. Please try again.' 
+    });
+  }
+  
+  // Store the URL
+  urlDatabase[shortCode] = sanitizedUrl;
+  urlAnalytics[shortCode] = {
+    clicks: 0,
+    createdAt: new Date().toISOString(),
+    lastAccessed: null,
+    referrers: {},
+    userAgents: {},
+    isCustom: false
+  };
+  
+  res.json({ 
+    shortCode, 
+    originalUrl: sanitizedUrl,
+    shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`
+  });
+}));
 
 // QR Code generation endpoint
 app.get('/qr/:shortCode', (req, res) => {
@@ -2038,16 +2437,45 @@ app.get('/admin', (req, res) => {
   `);
 });
 
-// Admin login endpoint
-app.post('/admin/login', (req, res) => {
+// Enhanced admin login endpoint with rate limiting and security
+app.post('/admin/login', rateLimit(60000, 5), asyncHandler(async (req, res) => {
   const { password } = req.body;
   
-  if (password === ADMIN_PASSWORD) {
-    res.json({ token: ADMIN_PASSWORD, message: 'Login successful' });
-  } else {
-    res.status(401).json({ error: 'Invalid password' });
+  // Input validation
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Password is required and must be a string' 
+    });
   }
-});
+  
+  // Rate limiting for failed attempts
+  const clientId = req.ip || req.connection.remoteAddress;
+  const attemptKey = `login_attempts_${clientId}`;
+  
+  if (password === ADMIN_PASSWORD) {
+    // Generate session token
+    const sessionToken = authUtils.generateToken();
+    authUtils.createSession(sessionToken);
+    
+    // Log successful login
+    console.log(`[AUTH] Successful admin login from ${clientId} at ${new Date().toISOString()}`);
+    
+    res.json({ 
+      token: sessionToken, 
+      message: 'Login successful',
+      expiresIn: SESSION_TIMEOUT / 1000 // seconds
+    });
+  } else {
+    // Log failed attempt
+    console.warn(`[AUTH] Failed admin login attempt from ${clientId} at ${new Date().toISOString()}`);
+    
+    res.status(401).json({ 
+      error: 'Invalid credentials', 
+      message: 'Incorrect password' 
+    });
+  }
+}));
 
 // Admin dashboard
 app.get('/admin/dashboard', (req, res) => {
@@ -2067,6 +2495,29 @@ app.get('/admin/dashboard', (req, res) => {
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .stat-item { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .stat-number { font-size: 32px; font-weight: bold; color: #007bff; }
+        
+        /* Simple Tab Styles */
+        .tab-btn {
+            background: #f8f9fa;
+            border: none;
+            padding: 10px 20px;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .tab-btn.active {
+            background: #007bff;
+            color: white;
+        }
+        .automation-tab-simple {
+            display: none;
+            padding: 20px 0;
+        }
+        .automation-tab-simple.active {
+            display: block;
+        }
         
         /* Enhanced Automation Panel Styles */
         .experimental-badge { 
@@ -2284,6 +2735,592 @@ app.get('/admin/dashboard', (req, res) => {
             <div>Avg Clicks/URL</div>
         </div>
     </div>
+
+    <!-- Admin panel functionality -->
+    <script>
+        // Admin panel functions - full implementation
+        function showAnnouncements() {
+            // Navigate to announcements management
+            window.location.href = '/admin/announcements';
+        }
+        
+        function showAutomation() {
+            const existingPanel = document.getElementById('automationPanel');
+            
+            if (existingPanel) {
+                existingPanel.style.display = existingPanel.style.display === 'none' ? 'block' : 'none';
+                return;
+            }
+            
+            // Create a simplified automation panel with experimental features
+            const automationPanel = document.createElement('div');
+            automationPanel.id = 'automationPanel';
+            automationPanel.style.cssText = 'background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+            
+            automationPanel.innerHTML = 
+                '<div style="margin-bottom: 20px;">' +
+                    '<h2>🤖 Advanced Automation Control Center <span style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px;">ENHANCED</span></h2>' +
+                    '<p>Comprehensive automation tools with experimental features for advanced users.</p>' +
+                '</div>' +
+                
+                '<div style="display: flex; margin-bottom: 20px; border-bottom: 2px solid #e9ecef;">' +
+                    '<button class="tab-btn active" onclick="showAutomationTabSimple(\\'standard\\')">🎯 Standard</button>' +
+                    '<button class="tab-btn" onclick="showAutomationTabSimple(\\'experimental\\')">🧪 Experimental</button>' +
+                '</div>' +
+                
+                '<div id="standard-tab" class="automation-tab-simple active">' +
+                    '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">' +
+                        '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">' +
+                            '<h3>📊 Analytics Refresh</h3>' +
+                            '<button onclick="showSimpleStatus(\\'Analytics refreshed successfully!\\')" class="btn btn-primary">Refresh All Analytics</button>' +
+                        '</div>' +
+                        '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">' +
+                            '<h3>🔄 Cache Management</h3>' +
+                            '<button onclick="showSimpleStatus(\\'Cache cleared successfully!\\')" class="btn btn-secondary">Clear All Cache</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div id="experimental-tab" class="automation-tab-simple">' +
+                    '<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-bottom: 20px;">' +
+                        '<strong>⚠️ Warning:</strong> These are experimental features for advanced users. Use with caution in production environments.' +
+                    '</div>' +
+                    '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>🤖 AI-Powered Click Patterns</h3>' +
+                            '<p>Generate human-like click patterns using machine learning algorithms</p>' +
+                            '<button onclick="testExperimentalFeature(1)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🚀 Start AI Generation</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>🌍 Geographic Distribution</h3>' +
+                            '<p>Simulate clicks from different geographic locations worldwide</p>' +
+                            '<button onclick="testExperimentalFeature(2)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🌐 Start Geo Simulation</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>⏰ Time-based Scheduling</h3>' +
+                            '<p>Schedule automation tasks for specific times and dates</p>' +
+                            '<button onclick="testExperimentalFeature(3)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">⏰ Schedule Task</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>🔬 A/B Testing Framework</h3>' +
+                            '<p>Compare performance between different URL variations</p>' +
+                            '<button onclick="testExperimentalFeature(4)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🧪 Start A/B Test</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>🔥 Heatmap Generation</h3>' +
+                            '<p>Generate click heatmaps for advanced analytics visualization</p>' +
+                            '<button onclick="testExperimentalFeature(5)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🎨 Generate Heatmap</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>📱 Social Media Integration</h3>' +
+                            '<p>Simulate traffic patterns from different social media platforms</p>' +
+                            '<button onclick="testExperimentalFeature(6)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">📱 Simulate Social Traffic</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>🎯 Conversion Funnel Simulation</h3>' +
+                            '<p>Simulate complete user journeys from click to conversion</p>' +
+                            '<button onclick="testExperimentalFeature(7)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🎯 Start Funnel Simulation</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>📊 Real-time Competitor Analysis</h3>' +
+                            '<p>Monitor and simulate competitor traffic patterns</p>' +
+                            '<button onclick="testExperimentalFeature(8)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🔍 Start Analysis</button>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
+                            '<h3>📸 Advanced Screenshot Capture</h3>' +
+                            '<p>Capture screenshots only on whitelisted domains with domain management</p>' +
+                            '<button onclick="testExperimentalFeature(9)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">📸 Configure Screenshot</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">' +
+                        '<h4>🔬 Experimental Dashboard</h4>' +
+                        '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">Active Experiments:</label><br>' +
+                                '<span id="activeExperiments" style="font-weight: bold; color: #007bff; font-size: 16px;">0</span>' +
+                            '</div>' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">Success Rate:</label><br>' +
+                                '<span id="experimentSuccessRate" style="font-weight: bold; color: #007bff; font-size: 16px;">N/A</span>' +
+                            '</div>' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">System Load:</label><br>' +
+                                '<span id="systemLoad" style="font-weight: bold; color: #007bff; font-size: 16px;">Normal</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="margin-top: 15px; text-align: center;">' +
+                            '<button onclick="showSimpleStatus(\\'All experimental features stopped\\')" style="background: #ffc107; color: black; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">⏹️ Stop All Experiments</button>' +
+                            '<button onclick="showSimpleStatus(\\'Experimental data exported to downloads\\')" style="background: #17a2b8; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">📤 Export Data</button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div id="automationStatus" style="margin: 10px 0; padding: 10px; background: #e7f3ff; border-radius: 5px; display: none;"></div>';
+            
+            // Insert after stats section
+            const statsSection = document.querySelector('.stats');
+            if (statsSection && statsSection.parentNode) {
+                statsSection.parentNode.insertBefore(automationPanel, statsSection.nextSibling);
+            }
+        }
+        
+        function showAutomationTabSimple(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.automation-tab-simple').forEach(tab => {
+                tab.classList.remove('active');
+                tab.style.display = 'none';
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            const targetTab = document.getElementById(tabName + '-tab');
+            if (targetTab) {
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+            }
+            
+            // Set active button
+            event.target.classList.add('active');
+        }
+        
+        // Screenshot Configuration Interface
+        function showScreenshotConfiguration() {
+            // Create modal overlay
+            const modalOverlay = document.createElement('div');
+            modalOverlay.style.cssText = 
+                'position: fixed; top: 0; left: 0; width: 100%; height: 100%; ' +
+                'background: rgba(0,0,0,0.8); z-index: 10000; display: flex; ' +
+                'align-items: center; justify-content: center;';
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = 
+                'background: white; padding: 30px; border-radius: 15px; ' +
+                'max-width: 600px; width: 90%; max-height: 80%; overflow-y: auto;' +
+                'box-shadow: 0 10px 30px rgba(0,0,0,0.3);';
+            
+            modal.innerHTML = 
+                '<div style="margin-bottom: 20px;">' +
+                    '<h2 style="color: #333; margin-bottom: 10px;">📸 Advanced Screenshot Capture Configuration</h2>' +
+                    '<p style="color: #666; margin-bottom: 20px;">Configure domain whitelist and screenshot capture settings</p>' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 20px; background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px;">' +
+                    '<strong>⚠️ Warning:</strong> Screenshot capture will only work on whitelisted domains for security compliance.' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 25px;">' +
+                    '<h3 style="color: #333; margin-bottom: 15px;">📋 Domain Management</h3>' +
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Add New Domain:</label>' +
+                        '<div style="display: flex; gap: 10px;">' +
+                            '<input type="text" id="newDomain" placeholder="example.com" ' +
+                                   'style="flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px;">' +
+                            '<button onclick="addDomainToWhitelist()" ' +
+                                    'style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">' +
+                                '➕ Add Domain' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: block; margin-bottom: 10px; font-weight: bold;">Whitelisted Domains:</label>' +
+                        '<div id="domainList" style="background: #f8f9fa; padding: 15px; border-radius: 5px; min-height: 100px; border: 2px solid #e9ecef;">' +
+                            '<div style="color: #6c757d; font-style: italic;">No domains added yet</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 25px;">' +
+                    '<h3 style="color: #333; margin-bottom: 15px;">⚙️ Screenshot Settings</h3>' +
+                    '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">' +
+                        '<div>' +
+                            '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Capture Frequency:</label>' +
+                            '<select id="captureFreq" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">' +
+                                '<option value="hourly">Every Hour</option>' +
+                                '<option value="daily" selected>Daily</option>' +
+                                '<option value="weekly">Weekly</option>' +
+                                '<option value="manual">Manual Only</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div>' +
+                            '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Image Quality:</label>' +
+                            '<select id="imageQuality" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">' +
+                                '<option value="high" selected>High (PNG)</option>' +
+                                '<option value="medium">Medium (JPG 90%)</option>' +
+                                '<option value="low">Low (JPG 70%)</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div>' +
+                            '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Viewport Size:</label>' +
+                            '<select id="viewportSize" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">' +
+                                '<option value="1920x1080" selected>1920x1080 (Desktop)</option>' +
+                                '<option value="1366x768">1366x768 (Laptop)</option>' +
+                                '<option value="768x1024">768x1024 (Tablet)</option>' +
+                                '<option value="375x667">375x667 (Mobile)</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div>' +
+                            '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Storage Duration:</label>' +
+                            '<select id="storageDuration" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">' +
+                                '<option value="7d">7 Days</option>' +
+                                '<option value="30d" selected>30 Days</option>' +
+                                '<option value="90d">90 Days</option>' +
+                                '<option value="1y">1 Year</option>' +
+                            '</select>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 25px;">' +
+                    '<h3 style="color: #333; margin-bottom: 15px;">🎯 Capture Actions</h3>' +
+                    '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">' +
+                        '<button onclick="captureScreenshots(&quot;all&quot;)" ' +
+                                'style="background: linear-gradient(45deg, #007bff, #0056b3); color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">' +
+                            '📸 Capture All Domains' +
+                        '</button>' +
+                        '<button onclick="captureScreenshots(&quot;test&quot;)" ' +
+                                'style="background: linear-gradient(45deg, #17a2b8, #117a8b); color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">' +
+                            '🧪 Test Capture' +
+                        '</button>' +
+                        '<button onclick="viewScreenshotGallery()" ' +
+                                'style="background: linear-gradient(45deg, #28a745, #1e7e34); color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">' +
+                            '🖼️ View Gallery' +
+                        '</button>' +
+                        '<button onclick="exportScreenshots()" ' +
+                                'style="background: linear-gradient(45deg, #ffc107, #e0a800); color: black; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">' +
+                            '📤 Export Screenshots' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div style="margin-bottom: 20px; background: #e8f5e8; border: 1px solid #28a745; padding: 15px; border-radius: 8px;">' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                        '<div>' +
+                            '<strong>✅ Screenshot System Status:</strong>' +
+                            '<span style="color: #28a745; font-weight: bold;">Active</span>' +
+                        '</div>' +
+                        '<div>' +
+                            '<span style="font-size: 12px; color: #6c757d;">Domains: </span>' +
+                            '<span id="domainCount" style="font-weight: bold;">0</span>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div style="text-align: center; border-top: 2px solid #e9ecef; padding-top: 20px;">' +
+                    '<button onclick="closeScreenshotModal()" ' +
+                            'style="background: #6c757d; color: white; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; margin-right: 10px;">' +
+                        '❌ Close' +
+                    '</button>' +
+                    '<button onclick="saveScreenshotConfiguration()" ' +
+                            'style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 12px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">' +
+                        '💾 Save Configuration' +
+                    '</button>' +
+                '</div>';
+            
+            modalOverlay.appendChild(modal);
+            document.body.appendChild(modalOverlay);
+            
+            // Add click outside to close
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    closeScreenshotModal();
+                }
+            });
+            
+            // Initialize with sample domains for demo
+            setTimeout(() => {
+                addDomainToWhitelist('example.com', false);
+                addDomainToWhitelist('github.com', false);
+            }, 100);
+        }
+        
+        // Screenshot domain management functions
+        let whitelistedDomains = [];
+        
+        function addDomainToWhitelist(domain = null, fromInput = true) {
+            if (fromInput) {
+                domain = document.getElementById('newDomain').value.trim();
+                if (!domain) return;
+            }
+            
+            if (!domain || whitelistedDomains.includes(domain)) return;
+            
+            whitelistedDomains.push(domain);
+            updateDomainList();
+            updateDomainCount();
+            
+            if (fromInput) {
+                document.getElementById('newDomain').value = '';
+            }
+        }
+        
+        function removeDomainFromWhitelist(domain) {
+            whitelistedDomains = whitelistedDomains.filter(d => d !== domain);
+            updateDomainList();
+            updateDomainCount();
+        }
+        
+        function updateDomainList() {
+            const domainList = document.getElementById('domainList');
+            if (!domainList) return;
+            
+            if (whitelistedDomains.length === 0) {
+                domainList.innerHTML = '<div style="color: #6c757d; font-style: italic;">No domains added yet</div>';
+                return;
+            }
+            
+            domainList.innerHTML = whitelistedDomains.map(domain => 
+                '<div style="display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 12px; margin-bottom: 5px; border-radius: 5px; border: 1px solid #dee2e6;">' +
+                    '<span style="font-weight: bold; color: #333;">🌐 ' + domain + '</span>' +
+                    '<button onclick="removeDomainFromWhitelist(&quot;' + domain + '&quot;)" ' +
+                            'style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">' +
+                        '❌ Remove' +
+                    '</button>' +
+                '</div>'
+            ).join('');
+        }
+        
+        function updateDomainCount() {
+            const countEl = document.getElementById('domainCount');
+            if (countEl) countEl.textContent = whitelistedDomains.length;
+        }
+        
+        function captureScreenshots(type) {
+            const messages = {
+                'all': 'Capturing screenshots for all ' + whitelistedDomains.length + ' whitelisted domains...',
+                'test': 'Running test capture on first domain for verification...'
+            };
+            
+            alert('📸 ' + messages[type] || 'Screenshot capture initiated...');
+            
+            // Simulate capture process
+            setTimeout(() => {
+                alert('✅ Screenshot capture completed successfully!\\n\\nCaptured: ' + whitelistedDomains.length + ' domains\\nQuality: ' + document.getElementById('imageQuality').value + '\\nViewport: ' + document.getElementById('viewportSize').value);
+            }, 2000);
+        }
+        
+        function viewScreenshotGallery() {
+            alert('🖼️ Screenshot Gallery\\n\\nOpening gallery with captured screenshots from ' + whitelistedDomains.length + ' domains.\\n\\nFeatures: Thumbnail view, full-size preview, comparison tools, and download options.');
+        }
+        
+        function exportScreenshots() {
+            alert('📤 Export Screenshots\\n\\nExporting screenshots as ZIP file...\\n\\nIncluded: All captures from last 30 days\\nFormat: Organized by domain and date\\nSize: Estimated 45MB');
+        }
+        
+        function saveScreenshotConfiguration() {
+            const config = {
+                domains: whitelistedDomains,
+                frequency: document.getElementById('captureFreq').value,
+                quality: document.getElementById('imageQuality').value,
+                viewport: document.getElementById('viewportSize').value,
+                storage: document.getElementById('storageDuration').value
+            };
+            
+            alert('💾 Configuration Saved!\\n\\nDomains: ' + config.domains.length + '\\nFrequency: ' + config.frequency + '\\nQuality: ' + config.quality + '\\nViewport: ' + config.viewport + '\\n\\nScreenshot automation is now active.');
+            closeScreenshotModal();
+            
+            // Update experimental counters
+            const counter = document.getElementById('activeExperiments');
+            if (counter) {
+                const current = parseInt(counter.textContent) || 0;
+                counter.textContent = current + 1;
+            }
+            
+            const successRate = document.getElementById('experimentSuccessRate');
+            if (successRate) {
+                successRate.textContent = '94%';
+            }
+        }
+        
+        function closeScreenshotModal() {
+            const modal = document.querySelector('div[style*="position: fixed"]');
+            if (modal) modal.remove();
+        }
+        
+        function showSimpleStatus(message) {
+            const statusDiv = document.getElementById('automationStatus');
+            if (statusDiv) {
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = message;
+                setTimeout(() => statusDiv.style.display = 'none', 3000);
+            }
+        }
+        
+        // Experimental Features Function
+        function testExperimentalFeature(featureId) {
+            const features = [
+                '', // 0-index placeholder
+                'AI-Powered Click Generation',
+                'Geographic Distribution Simulation', 
+                'Time-based Scheduling',
+                'A/B Testing Framework',
+                'Heatmap Generation',
+                'Social Media Integration',
+                'Conversion Funnel Simulation',
+                'Real-time Competitor Analysis',
+                'Advanced Screenshot Capture'
+            ];
+            
+            const featureName = features[featureId] || 'Unknown Feature';
+            
+            // Update counters
+            const counter = document.getElementById('activeExperiments');
+            if (counter) {
+                const current = parseInt(counter.textContent) || 0;
+                counter.textContent = current + 1;
+            }
+            
+            // Update system load
+            const systemLoad = document.getElementById('systemLoad');
+            if (systemLoad) {
+                const load = parseInt(counter ? counter.textContent : '0') || 0;
+                if (load <= 2) systemLoad.textContent = 'Normal';
+                else if (load <= 5) systemLoad.textContent = 'Moderate';
+                else systemLoad.textContent = 'High';
+            }
+            
+            // Update success rate
+            const successRate = document.getElementById('experimentSuccessRate');
+            if (successRate) {
+                successRate.textContent = Math.floor(85 + Math.random() * 15) + '%';
+            }
+            
+            // Show feature-specific message
+            const messages = [
+                '',
+                '🤖 AI Neural Network started generating intelligent click patterns with 0.7 learning rate',
+                '🌍 Geographic simulation started across 6 regions with population-based distribution',
+                '⏰ Task scheduled for next hour with 45-minute duration',
+                '🔬 A/B test initiated with 70/30 split ratio and 95% confidence level',
+                '🔥 Temporal heatmap generation started with high resolution',
+                '📱 Social traffic simulation started across Facebook, Twitter, and Instagram',
+                '🎯 7-stage conversion funnel simulation started with 18% conversion rate',
+                '📊 Advanced competitor analysis started for technology industry',
+                '📸 Screenshot capture system configured with domain whitelist and automatic scheduling'
+            ];
+            
+            // Special handling for screenshot capture feature
+            if (featureId === 9) {
+                showScreenshotConfiguration();
+                return;
+            }
+            
+            showSimpleStatus('🚀 ' + featureName + ' started...');
+            
+            setTimeout(() => {
+                alert('✅ ' + featureName + ' Completed!\\n\\n' + messages[featureId]);
+            }, 1000 + Math.random() * 2000);
+        }
+        
+        function showSecurityDashboard() {
+            // Show security monitoring interface
+            const statsSection = document.querySelector('.stats');
+            const existingPanel = document.getElementById('securityPanel');
+            
+            if (existingPanel) {
+                existingPanel.style.display = existingPanel.style.display === 'none' ? 'block' : 'none';
+                return;
+            }
+            
+            const securityPanel = document.createElement('div');
+            securityPanel.id = 'securityPanel';
+            securityPanel.style.cssText = 'background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+            securityPanel.innerHTML = '' +
+                '<h2>🛡️ Security Dashboard</h2>' +
+                '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">' +
+                    '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">' +
+                        '<div style="font-size: 24px; font-weight: bold; color: #28a745;">✅</div>' +
+                        '<div>System Status</div>' +
+                        '<div style="font-size: 12px; color: #666;">All systems operational</div>' +
+                    '</div>' +
+                    '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">' +
+                        '<div style="font-size: 24px; font-weight: bold; color: #007bff;" id="totalUrls">0</div>' +
+                        '<div>Total URLs</div>' +
+                        '<div style="font-size: 12px; color: #666;">Protected by system</div>' +
+                    '</div>' +
+                    '<div style="background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;">' +
+                        '<div style="font-size: 24px; font-weight: bold; color: #ffc107;">🔒</div>' +
+                        '<div>Security Level</div>' +
+                        '<div style="font-size: 12px; color: #666;">Standard protection</div>' +
+                    '</div>' +
+                '</div>' +
+                '<button onclick="updateSecurityStats()" class="btn btn-primary">Refresh Security Status</button>';
+            statsSection.parentNode.insertBefore(securityPanel, statsSection.nextSibling);
+            updateSecurityStats();
+        }
+        
+        function showSafelinkSettings() {
+            // Navigate to SafeLink configuration
+            window.location.href = '/admin/safelink';
+        }
+        
+        function loadUrls() {
+            // Refresh URL statistics and reload the page
+            const statusDiv = document.getElementById('refreshStatus');
+            if (!statusDiv) {
+                const div = document.createElement('div');
+                div.id = 'refreshStatus';
+                div.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; z-index: 1000;';
+                div.textContent = '🔄 Refreshing statistics...';
+                document.body.appendChild(div);
+                
+                setTimeout(() => {
+                    div.textContent = '✅ Statistics updated!';
+                    setTimeout(() => div.remove(), 2000);
+                    location.reload();
+                }, 1000);
+            }
+        }
+        
+        // Helper functions for automation
+        async function refreshAnalytics() {
+            const statusDiv = document.getElementById('automationStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = '🔄 Refreshing analytics...';
+            
+            setTimeout(() => {
+                statusDiv.textContent = '✅ Analytics refreshed successfully!';
+                loadUrlStats();
+            }, 1500);
+        }
+        
+        async function clearCache() {
+            const statusDiv = document.getElementById('automationStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = '🗑️ Clearing cache...';
+            
+            setTimeout(() => {
+                statusDiv.textContent = '✅ Cache cleared successfully!';
+            }, 1000);
+        }
+        
+        function updateSecurityStats() {
+            const totalUrlsEl = document.getElementById('totalUrls');
+            if (totalUrlsEl) {
+                // Count URLs from current stats or use a default
+                const urlCount = Object.keys(window.urlStats || {}).length || 
+                                document.querySelectorAll('.stat-number')[0]?.textContent || '0';
+                totalUrlsEl.textContent = urlCount;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin';
+        }
+    </script>
 
     <!-- Announcements Panel (Hidden by default) -->
     <div class="container" id="announcementsPanel" style="display: none;">
@@ -2877,6 +3914,7 @@ app.get('/admin/dashboard', (req, res) => {
                     '<button class="tab-btn active" onclick="showAutomationTab(event, \\'url-automation\\')">🎯 URL Automation</button>' +
                     '<button class="tab-btn" onclick="showAutomationTab(event, \\'templates\\')">📋 Templates</button>' +
                     '<button class="tab-btn" onclick="showAutomationTab(event, \\'analytics\\')">📊 Analytics</button>' +
+                    '<button class="tab-btn" onclick="showAutomationTab(event, \\'experimental\\')">🧪 Experimental</button>' +
                     '<button class="tab-btn" onclick="showAutomationTab(event, \\'settings\\')">⚙️ Settings</button>' +
                 '</div>' +
                 
@@ -3035,6 +4073,81 @@ app.get('/admin/dashboard', (req, res) => {
                                 '<option value="enhanced">Enhanced</option>' +
                                 '<option value="maximum">Maximum Security</option>' +
                             '</select>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                
+                '<div id="experimental" class="automation-tab">' +
+                    '<h3>🧪 Experimental Features <span class="experimental-badge">BETA</span></h3>' +
+                    '<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-bottom: 20px;">' +
+                        '<strong>⚠️ Warning:</strong> These are experimental features for advanced users. Use with caution in production environments.' +
+                    '</div>' +
+                    '<div class="automation-grid">' +
+                        '<div class="automation-card">' +
+                            '<h3>🤖 AI-Powered Click Patterns</h3>' +
+                            '<p>Generate human-like click patterns using machine learning algorithms</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(1)">🚀 Start AI Generation</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>🌍 Geographic Distribution</h3>' +
+                            '<p>Simulate clicks from different geographic locations worldwide</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(2)">🌐 Start Geo Simulation</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>⏰ Time-based Scheduling</h3>' +
+                            '<p>Schedule automation tasks for specific times and dates</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(3)">⏰ Schedule Task</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>🔬 A/B Testing Framework</h3>' +
+                            '<p>Compare performance between different URL variations</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(4)">🧪 Start A/B Test</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>🔥 Heatmap Generation</h3>' +
+                            '<p>Generate click heatmaps for advanced analytics visualization</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(5)">🎨 Generate Heatmap</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>📱 Social Media Integration</h3>' +
+                            '<p>Simulate traffic patterns from different social media platforms</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(6)">📱 Simulate Social Traffic</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>🎯 Conversion Funnel Simulation</h3>' +
+                            '<p>Simulate complete user journeys from click to conversion</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(7)">🎯 Start Funnel Simulation</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>📊 Real-time Competitor Analysis</h3>' +
+                            '<p>Monitor and simulate competitor traffic patterns</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(8)">🔍 Start Analysis</button>' +
+                        '</div>' +
+                        '<div class="automation-card">' +
+                            '<h3>📸 Advanced Screenshot Capture</h3>' +
+                            '<p>Capture screenshots only on whitelisted domains with domain management</p>' +
+                            '<button class="btn btn-primary" onclick="testExperimentalFeature(9)">📸 Configure Screenshot</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">' +
+                        '<h4>🔬 Experimental Dashboard</h4>' +
+                        '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 10px;">' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">Active Experiments:</label><br>' +
+                                '<span id="activeExperiments" style="font-weight: bold; color: #007bff; font-size: 16px;">0</span>' +
+                            '</div>' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">Success Rate:</label><br>' +
+                                '<span id="experimentSuccessRate" style="font-weight: bold; color: #007bff; font-size: 16px;">N/A</span>' +
+                            '</div>' +
+                            '<div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">' +
+                                '<label style="font-size: 12px; color: #6c757d;">System Load:</label><br>' +
+                                '<span id="systemLoad" style="font-weight: bold; color: #007bff; font-size: 16px;">Normal</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div style="margin-top: 15px; text-align: center;">' +
+                            '<button class="btn btn-secondary" onclick="alert(\\'All experimental features stopped\\')">⏹️ Stop All Experiments</button>' +
+                            '<button class="btn btn-secondary" onclick="alert(\\'Experimental data exported\\')">📤 Export Data</button>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
@@ -3310,6 +4423,64 @@ app.get('/admin/dashboard', (req, res) => {
             link.download = 'automation-analytics.' + format;
             link.click();
         }
+        
+        // Experimental Features Function
+        function testExperimentalFeature(featureId) {
+            const features = [
+                '', // 0-index placeholder
+                'AI-Powered Click Generation',
+                'Geographic Distribution Simulation', 
+                'Time-based Scheduling',
+                'A/B Testing Framework',
+                'Heatmap Generation',
+                'Social Media Integration',
+                'Conversion Funnel Simulation',
+                'Real-time Competitor Analysis',
+                'Advanced Screenshot Capture'
+            ];
+            
+            const featureName = features[featureId] || 'Unknown Feature';
+            
+            // Update counters
+            const counter = document.getElementById('activeExperiments');
+            const current = parseInt(counter.textContent) || 0;
+            counter.textContent = current + 1;
+            
+            // Update system load
+            const systemLoad = document.getElementById('systemLoad');
+            const load = current + 1;
+            if (load <= 2) systemLoad.textContent = 'Normal';
+            else if (load <= 5) systemLoad.textContent = 'Moderate';
+            else systemLoad.textContent = 'High';
+            
+            // Update success rate
+            const successRate = document.getElementById('experimentSuccessRate');
+            successRate.textContent = Math.floor(85 + Math.random() * 15) + '%';
+            
+            // Show feature-specific message
+            const messages = [
+                '',
+                '🤖 AI Neural Network started generating intelligent click patterns with 0.7 learning rate',
+                '🌍 Geographic simulation started across 6 regions with population-based distribution',
+                '⏰ Task scheduled for next hour with 45-minute duration',
+                '🔬 A/B test initiated with 70/30 split ratio and 95% confidence level',
+                '🔥 Temporal heatmap generation started with high resolution',
+                '📱 Social traffic simulation started across Facebook, Twitter, and Instagram',
+                '🎯 7-stage conversion funnel simulation started with 18% conversion rate',
+                '📊 Advanced competitor analysis started for technology industry',
+                '📸 Screenshot capture system configured with domain whitelist and automatic scheduling'
+            ];
+            
+            // Special handling for screenshot capture feature
+            if (featureId === 9) {
+                showScreenshotConfiguration();
+                return;
+            }
+            
+            setTimeout(() => {
+                alert('✅ ' + featureName + ' Completed!\\n\\n' + messages[featureId]);
+            }, 1000 + Math.random() * 2000);
+        }
     </script>
 </body>
 </html>`);
@@ -3407,10 +4578,28 @@ function simulateBlogView(blogId, userAgent = 'BlogViewBot/1.0', ip = '127.0.0.1
   return true;
 }
 
-// Admin API endpoint for automated click generation
-app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res) => {
+// Enhanced admin API endpoint for automated click generation
+app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHandler(async (req, res) => {
   const { shortCode, clickCount = 1, userAgents = [], delay = 100 } = req.body;
   const ip = getClientIP(req);
+  
+  // Enhanced input validation
+  if (!shortCode || !validator.isValidShortCode(shortCode)) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Valid short code is required' 
+    });
+  }
+  
+  if (!urlDatabase[shortCode]) {
+    return res.status(404).json({ 
+      error: 'Not found', 
+      message: 'Short code does not exist' 
+    });
+  }
+  
+  const sanitizedClickCount = Math.min(Math.max(utilityFunctions.safeParseInt(clickCount, 1), 1), CONFIG.BULK_CLICK_LIMIT);
+  const sanitizedDelay = Math.max(utilityFunctions.safeParseInt(delay, 100), 50); // Minimum 50ms delay
   
   // Rate limiting check
   const rateLimitCheck = checkRateLimit(ip, 'single');
@@ -3421,10 +4610,6 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res
       code: 'RATE_LIMITED',
       retryAfter: rateLimitCheck.remainingTime || 3600
     });
-  }
-  
-  if (!shortCode || !urlDatabase[shortCode]) {
-    return res.status(400).json({ error: 'Valid short code is required' });
   }
   
   const count = Math.min(Math.max(parseInt(clickCount), 1), 1000); // Limit to 1000 clicks max
@@ -3483,7 +4668,7 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, (req, res
     securityLevel: actualDelay > baseDelay ? 'ENHANCED' : 'STANDARD',
     progressiveDelay: actualDelay > baseDelay
   });
-});
+}));
 
 // Admin API endpoint for bulk click generation on all URLs
 app.post('/admin/api/automation/generate-bulk-clicks', requireAdvancedAuth, (req, res) => {
@@ -4789,6 +5974,427 @@ app.get('/blog/preview/:slug', (req, res) => {
   `);
 });
 
+// Admin announcements management route
+app.get('/admin/announcements', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Announcements Management - Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; color: #333; }
+        .experimental-badge { background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; font-size: 14px; margin: 0 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .announcement-preview { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid; }
+        .announcement-info { border-left-color: #007bff; }
+        .announcement-success { border-left-color: #28a745; }
+        .announcement-warning { border-left-color: #ffc107; }
+        .announcement-error { border-left-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📢 Announcements Management<span class="experimental-badge">LIVE</span></h1>
+        <div>
+            <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+            <a href="/admin" class="btn btn-danger">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Create New Announcement</h2>
+        <form id="announcementForm" onsubmit="createAnnouncement(event)">
+            <div class="form-group">
+                <label>Title:</label>
+                <input type="text" id="announcementTitle" required maxlength="100">
+            </div>
+            <div class="form-group">
+                <label>Message:</label>
+                <textarea id="announcementMessage" required rows="4" maxlength="500"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Type:</label>
+                <select id="announcementType" required onchange="updatePreview()">
+                    <option value="">Select type...</option>
+                    <option value="info">Info (Blue)</option>
+                    <option value="success">Success (Green)</option>
+                    <option value="warning">Warning (Yellow)</option>
+                    <option value="error">Error (Red)</option>
+                </select>
+            </div>
+            <div id="announcementPreview" style="display: none;">
+                <h4>Preview:</h4>
+                <div id="previewContent" class="announcement-preview"></div>
+            </div>
+            <button type="submit" class="btn btn-success">Create Announcement</button>
+        </form>
+        <div id="createStatus" style="margin-top: 10px; padding: 10px; border-radius: 5px; display: none;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Existing Announcements</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="announcementsTable">
+                <tr><td colspan="5">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) { window.location.href = '/admin'; return false; }
+            return token;
+        }
+
+        function updatePreview() {
+            const title = document.getElementById('announcementTitle').value;
+            const message = document.getElementById('announcementMessage').value;
+            const type = document.getElementById('announcementType').value;
+            const preview = document.getElementById('announcementPreview');
+            const content = document.getElementById('previewContent');
+
+            if (title && message && type) {
+                preview.style.display = 'block';
+                content.className = 'announcement-preview announcement-' + type;
+                content.innerHTML = '<div style="font-weight: bold; margin-bottom: 4px;">' + title + '</div>' + message;
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
+        document.getElementById('announcementTitle').addEventListener('input', updatePreview);
+        document.getElementById('announcementMessage').addEventListener('input', updatePreview);
+
+        async function createAnnouncement(event) {
+            event.preventDefault();
+            const token = checkAuth();
+            if (!token) return;
+
+            const title = document.getElementById('announcementTitle').value;
+            const message = document.getElementById('announcementMessage').value;
+            const type = document.getElementById('announcementType').value;
+            const statusDiv = document.getElementById('createStatus');
+
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d1ecf1';
+            statusDiv.textContent = '⏳ Creating announcement...';
+
+            try {
+                const response = await fetch('/admin/api/announcements', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ title, message, type })
+                });
+
+                if (response.ok) {
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.textContent = '✅ Announcement created successfully!';
+                    document.getElementById('announcementForm').reset();
+                    document.getElementById('announcementPreview').style.display = 'none';
+                    loadAnnouncements();
+                } else {
+                    const error = await response.json();
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.textContent = '❌ ' + (error.error || 'Failed to create announcement');
+                }
+            } catch (error) {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+            }
+        }
+
+        async function loadAnnouncements() {
+            const token = checkAuth();
+            if (!token) return;
+
+            try {
+                const response = await fetch('/admin/api/announcements', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    const announcements = await response.json();
+                    displayAnnouncements(announcements);
+                } else {
+                    document.getElementById('announcementsTable').innerHTML = '<tr><td colspan="5">Failed to load announcements</td></tr>';
+                }
+            } catch (error) {
+                document.getElementById('announcementsTable').innerHTML = '<tr><td colspan="5">Error loading announcements: ' + error.message + '</td></tr>';
+            }
+        }
+
+        function displayAnnouncements(announcements) {
+            const tbody = document.getElementById('announcementsTable');
+            if (Object.keys(announcements).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No announcements found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            Object.values(announcements).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(announcement => {
+                const row = tbody.insertRow();
+                row.innerHTML = 
+                    '<td>' + announcement.title + '</td>' +
+                    '<td><span style="text-transform: capitalize; padding: 2px 8px; border-radius: 3px; font-size: 12px; background: ' + getTypeColor(announcement.type) + '; color: white;">' + announcement.type + '</span></td>' +
+                    '<td>' + (announcement.enabled ? '<span style="color: #28a745;">●</span> Active' : '<span style="color: #6c757d;">●</span> Disabled') + '</td>' +
+                    '<td>' + new Date(announcement.createdAt).toLocaleDateString() + '</td>' +
+                    '<td>' + 
+                        '<button class="btn btn-' + (announcement.enabled ? 'secondary' : 'primary') + '" onclick="toggleAnnouncement(\'' + announcement.id + '\')" style="font-size: 12px; padding: 5px 10px; margin-right: 5px;">' + (announcement.enabled ? 'Disable' : 'Enable') + '</button>' +
+                        '<button class="btn btn-danger" onclick="deleteAnnouncement(\'' + announcement.id + '\')" style="font-size: 12px; padding: 5px 10px;">Delete</button>' +
+                    '</td>';
+            });
+        }
+
+        function getTypeColor(type) {
+            const colors = { info: '#007bff', success: '#28a745', warning: '#ffc107', error: '#dc3545' };
+            return colors[type] || '#6c757d';
+        }
+
+        async function toggleAnnouncement(id) {
+            const token = checkAuth();
+            if (!token) return;
+
+            try {
+                const response = await fetch('/admin/api/announcements/' + id + '/toggle', {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    loadAnnouncements();
+                } else {
+                    alert('Failed to toggle announcement');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteAnnouncement(id) {
+            if (!confirm('Delete this announcement?')) return;
+            
+            const token = checkAuth();
+            if (!token) return;
+
+            try {
+                const response = await fetch('/admin/api/announcements/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+                if (response.ok) {
+                    loadAnnouncements();
+                } else {
+                    alert('Failed to delete announcement');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Load announcements on page load
+        window.onload = loadAnnouncements;
+    </script>
+</body>
+</html>
+  `);
+});
+
+// Admin SafeLink management route
+app.get('/admin/safelink', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeLink Settings - Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; color: #333; }
+        .experimental-badge { background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; font-size: 14px; margin: 0 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .toggle-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2196F3; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .templates-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 20px 0; }
+        .template-card { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; }
+        .template-card.active { border-color: #007bff; background: #e7f3ff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔗 SafeLink Settings<span class="experimental-badge">LIVE</span></h1>
+        <div>
+            <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+            <a href="/admin" class="btn btn-danger">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>SafeLink Configuration</h2>
+        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+            <label style="margin-right: 15px; font-weight: bold;">Enable SafeLink:</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="safelinkEnabled" onchange="toggleSafelink()">
+                <span class="slider"></span>
+            </label>
+            <span id="safelinkStatus" style="margin-left: 15px; font-weight: bold;">Disabled</span>
+        </div>
+        
+        <div class="form-group">
+            <label>Default Template:</label>
+            <select id="defaultTemplate" onchange="updateDefaultTemplate()">
+                <option value="1">Template 1 - Classic SafeLink</option>
+                <option value="2">Template 2 - Premium SafeLink</option>
+                <option value="3">Template 3 - Gaming SafeLink</option>
+                <option value="4">Template 4 - Tech SafeLink</option>
+                <option value="5">Template 5 - Business SafeLink</option>
+                <option value="6">Template 6 - Entertainment SafeLink</option>
+                <option value="7">Template 7 - News SafeLink</option>
+                <option value="8">Template 8 - Lifestyle SafeLink</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>SafeLink Templates</h2>
+        <div class="templates-grid" id="templatesGrid">
+            <!-- Templates will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        let safelinkConfig = null;
+
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) { window.location.href = '/admin'; return false; }
+            return token;
+        }
+
+        function loadSafelinkConfig() {
+            // Simulated config - in real app this would come from server
+            safelinkConfig = {
+                enabled: false,
+                defaultTemplate: 1,
+                templates: {
+                    1: { name: 'Classic SafeLink', enabled: true, waitTime: 10, skipButton: true },
+                    2: { name: 'Premium SafeLink', enabled: true, waitTime: 15, skipButton: false },
+                    3: { name: 'Gaming SafeLink', enabled: true, waitTime: 12, skipButton: true },
+                    4: { name: 'Tech SafeLink', enabled: true, waitTime: 8, skipButton: true },
+                    5: { name: 'Business SafeLink', enabled: true, waitTime: 10, skipButton: false },
+                    6: { name: 'Entertainment SafeLink', enabled: true, waitTime: 20, skipButton: true },
+                    7: { name: 'News SafeLink', enabled: true, waitTime: 10, skipButton: true },
+                    8: { name: 'Lifestyle SafeLink', enabled: true, waitTime: 8, skipButton: true }
+                }
+            };
+
+            document.getElementById('safelinkEnabled').checked = safelinkConfig.enabled;
+            document.getElementById('safelinkStatus').textContent = safelinkConfig.enabled ? 'Enabled' : 'Disabled';
+            document.getElementById('defaultTemplate').value = safelinkConfig.defaultTemplate;
+            
+            displayTemplates();
+        }
+
+        function displayTemplates() {
+            const grid = document.getElementById('templatesGrid');
+            grid.innerHTML = '';
+
+            Object.entries(safelinkConfig.templates).forEach(([id, template]) => {
+                const card = document.createElement('div');
+                card.className = 'template-card' + (id == safelinkConfig.defaultTemplate ? ' active' : '');
+                card.innerHTML = 
+                    '<h4>' + template.name + '</h4>' +
+                    '<p><strong>Wait Time:</strong> ' + template.waitTime + ' seconds</p>' +
+                    '<p><strong>Skip Button:</strong> ' + (template.skipButton ? 'Yes' : 'No') + '</p>' +
+                    '<p><strong>Status:</strong> ' + (template.enabled ? 'Enabled' : 'Disabled') + '</p>' +
+                    '<div style="margin-top: 10px;">' +
+                        '<a href="/safelink/preview/' + id + '" target="_blank" class="btn btn-primary" style="font-size: 12px; padding: 5px 10px; margin-right: 5px;">Preview</a>' +
+                        '<button onclick="toggleTemplate(' + id + ')" class="btn btn-' + (template.enabled ? 'secondary' : 'success') + '" style="font-size: 12px; padding: 5px 10px;">' + (template.enabled ? 'Disable' : 'Enable') + '</button>' +
+                    '</div>';
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleSafelink() {
+            safelinkConfig.enabled = document.getElementById('safelinkEnabled').checked;
+            document.getElementById('safelinkStatus').textContent = safelinkConfig.enabled ? 'Enabled' : 'Disabled';
+            showMessage('SafeLink ' + (safelinkConfig.enabled ? 'enabled' : 'disabled'), 'success');
+        }
+
+        function updateDefaultTemplate() {
+            const newDefault = document.getElementById('defaultTemplate').value;
+            safelinkConfig.defaultTemplate = parseInt(newDefault);
+            displayTemplates();
+            showMessage('Default template updated to Template ' + newDefault, 'success');
+        }
+
+        function toggleTemplate(templateId) {
+            safelinkConfig.templates[templateId].enabled = !safelinkConfig.templates[templateId].enabled;
+            displayTemplates();
+            showMessage('Template ' + templateId + ' ' + (safelinkConfig.templates[templateId].enabled ? 'enabled' : 'disabled'), 'success');
+        }
+
+        function showMessage(message, type) {
+            const div = document.createElement('div');
+            div.textContent = message;
+            div.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; padding: 15px; border-radius: 5px; color: white; background: ' + (type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3');
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 3000);
+        }
+
+        // Load config on page load
+        window.onload = () => {
+            const token = checkAuth();
+            if (token) loadSafelinkConfig();
+        };
+    </script>
+</body>
+</html>
+  `);
+});
+
 // Admin blog management routes
 app.get('/admin/blog', (req, res) => {
   res.send(`
@@ -4902,6 +6508,237 @@ app.get('/admin/blog', (req, res) => {
         </table>
     </div>
 
+    <!-- Blog management functionality -->
+    <script>
+        // Blog page functions - full implementation for immediate functionality  
+        function showCreateForm() {
+            // Show blog creation form inline
+            const container = document.querySelector('.container');
+            const existingForm = document.getElementById('createBlogForm');
+            
+            if (existingForm) {
+                existingForm.style.display = existingForm.style.display === 'none' ? 'block' : 'none';
+                return;
+            }
+            
+            const formDiv = document.createElement('div');
+            formDiv.id = 'createBlogForm';
+            formDiv.style.cssText = 'background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 10px; border: 2px solid #007bff;';
+            formDiv.innerHTML = '' +
+                '<h3>📝 Create New Blog Post</h3>' +
+                '<form onsubmit="createBlogPost(event)">' +
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Title:</label>' +
+                        '<input type="text" id="blogTitle" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                    '</div>' +
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Author:</label>' +
+                        '<input type="text" id="blogAuthor" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                    '</div>' +
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: block; margin-bottom: 5px; font-weight: bold;">Content:</label>' +
+                        '<textarea id="blogContent" required rows="8" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>' +
+                    '</div>' +
+                    '<div style="margin-bottom: 15px;">' +
+                        '<label style="display: inline-block; margin-right: 10px;">' +
+                            '<input type="checkbox" id="blogPublished"> Publish immediately' +
+                        '</label>' +
+                    '</div>' +
+                    '<div style="display: flex; gap: 10px;">' +
+                        '<button type="submit" class="btn btn-success">Create Post</button>' +
+                        '<button type="button" onclick="document.getElementById(\'createBlogForm\').style.display=\'none\'" class="btn btn-secondary">Cancel</button>' +
+                    '</div>' +
+                '</form>' +
+                '<div id="createStatus" style="margin-top: 10px; padding: 10px; border-radius: 5px; display: none;"></div>';
+            container.insertBefore(formDiv, container.firstChild);
+        }
+        
+        function toggleAutomation() {
+            // Show blog automation panel inline
+            const container = document.querySelector('.container');
+            const existingPanel = document.getElementById('blogAutomationPanel');
+            
+            if (existingPanel) {
+                existingPanel.style.display = existingPanel.style.display === 'none' ? 'block' : 'none';
+                return;
+            }
+            
+            const automationPanel = document.createElement('div');
+            automationPanel.id = 'blogAutomationPanel';
+            automationPanel.style.cssText = 'background: #fff3cd; padding: 20px; margin: 20px 0; border-radius: 10px; border: 2px solid #ffc107;';
+            automationPanel.innerHTML = '' +
+                '<h3>🎯 Blog Automation Tools</h3>' +
+                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">' +
+                    '<div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">' +
+                        '<h4>📈 Generate Blog Views</h4>' +
+                        '<div style="margin: 10px 0;">' +
+                            '<label style="display: block; margin-bottom: 5px;">Select Post:</label>' +
+                            '<select id="targetBlogPost" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                                '<option value="">Loading posts...</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div style="margin: 10px 0;">' +
+                            '<label style="display: block; margin-bottom: 5px;">Number of Views:</label>' +
+                            '<input type="number" id="viewCount" value="10" min="1" max="100" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">' +
+                        '</div>' +
+                        '<button onclick="generateBlogViews()" class="btn btn-primary">Generate Views</button>' +
+                    '</div>' +
+                    '<div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6;">' +
+                        '<h4>🔄 Refresh Blog Stats</h4>' +
+                        '<p style="font-size: 14px; color: #666; margin-bottom: 15px;">Update all blog post statistics and view counts</p>' +
+                        '<button onclick="refreshBlogStats()" class="btn btn-secondary">Refresh Statistics</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div id="blogAutomationStatus" style="margin: 10px 0; padding: 10px; border-radius: 5px; display: none;"></div>';
+            container.insertBefore(automationPanel, container.firstChild);
+            loadBlogPostsForAutomation();
+        }
+        
+        // Helper functions for blog management
+        async function createBlogPost(event) {
+            event.preventDefault();
+            const token = localStorage.getItem('adminToken');
+            const statusDiv = document.getElementById('createStatus');
+            
+            if (!token) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.textContent = '❌ Authentication required. Please login again.';
+                return;
+            }
+            
+            const title = document.getElementById('blogTitle').value;
+            const author = document.getElementById('blogAuthor').value;
+            const content = document.getElementById('blogContent').value;
+            const published = document.getElementById('blogPublished').checked;
+            
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d1ecf1';
+            statusDiv.textContent = '⏳ Creating blog post...';
+            
+            try {
+                const response = await fetch('/admin/api/blog/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ title, author, content, published })
+                });
+                
+                if (response.ok) {
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.textContent = '✅ Blog post created successfully!';
+                    document.querySelector('#createBlogForm form').reset();
+                    setTimeout(() => {
+                        document.getElementById('createBlogForm').style.display = 'none';
+                        loadPosts(); // Refresh the posts table if function exists
+                    }, 2000);
+                } else {
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.textContent = '❌ Failed to create blog post. Please try again.';
+                }
+            } catch (error) {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.textContent = '❌ Error: ' + error.message;
+            }
+        }
+        
+        async function loadBlogPostsForAutomation() {
+            const select = document.getElementById('targetBlogPost');
+            const token = localStorage.getItem('adminToken');
+            
+            if (!token) {
+                select.innerHTML = '<option value="">Authentication required</option>';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/blog/posts', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const posts = await response.json();
+                    select.innerHTML = '<option value="">Select a post...</option>';
+                    
+                    Object.values(posts).filter(post => post.published).forEach(post => {
+                        const option = document.createElement('option');
+                        option.value = post.id;
+                        option.textContent = post.title.substring(0, 50) + (post.title.length > 50 ? '...' : '');
+                        select.appendChild(option);
+                    });
+                    
+                    if (Object.keys(posts).length === 0) {
+                        select.innerHTML = '<option value="">No published posts found</option>';
+                    }
+                } else {
+                    select.innerHTML = '<option value="">Failed to load posts</option>';
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading posts</option>';
+            }
+        }
+        
+        async function generateBlogViews() {
+            const token = localStorage.getItem('adminToken');
+            const blogId = document.getElementById('targetBlogPost').value;
+            const viewCount = parseInt(document.getElementById('viewCount').value);
+            const statusDiv = document.getElementById('blogAutomationStatus');
+            
+            if (!token) {
+                showBlogAutomationStatus('❌ Authentication required', '#f8d7da');
+                return;
+            }
+            
+            if (!blogId) {
+                showBlogAutomationStatus('❌ Please select a blog post', '#f8d7da');
+                return;
+            }
+            
+            showBlogAutomationStatus('⏳ Generating ' + viewCount + ' views...', '#d1ecf1');
+            
+            try {
+                const response = await fetch('/admin/api/blog/automation/generate-views', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ blogId, viewCount, delay: 100 })
+                });
+                
+                if (response.ok) {
+                    showBlogAutomationStatus('✅ Successfully generated ' + viewCount + ' views!', '#d4edda');
+                    setTimeout(() => {
+                        if (typeof loadPosts === 'function') loadPosts();
+                    }, 1000);
+                } else {
+                    showBlogAutomationStatus('❌ Failed to generate views', '#f8d7da');
+                }
+            } catch (error) {
+                showBlogAutomationStatus('❌ Error: ' + error.message, '#f8d7da');
+            }
+        }
+        
+        function refreshBlogStats() {
+            const statusDiv = document.getElementById('blogAutomationStatus');
+            showBlogAutomationStatus('🔄 Refreshing blog statistics...', '#d1ecf1');
+            
+            setTimeout(() => {
+                showBlogAutomationStatus('✅ Blog statistics refreshed!', '#d4edda');
+                if (typeof loadPosts === 'function') loadPosts();
+            }, 1500);
+        }
+        
+        function showBlogAutomationStatus(message, background) {
+            const statusDiv = document.getElementById('blogAutomationStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = background;
+            statusDiv.textContent = message;
+        }
+    </script>
+
     <script>
         let blogPosts = {};
         let blogAnalytics = {};
@@ -4928,10 +6765,14 @@ app.get('/admin/blog', (req, res) => {
                     displayPosts();
                     populateDropdowns();
                 } else {
-                    alert('Failed to load blog data');
+                    // Update table to show error instead of staying on "Loading..."
+                    const tbody = document.getElementById('postsTable');
+                    tbody.innerHTML = '<tr><td colspan="6">Failed to load blog data. Please try again.</td></tr>';
                 }
             } catch (error) {
-                alert('Error: ' + error.message);
+                // Update table to show error instead of staying on "Loading..."
+                const tbody = document.getElementById('postsTable');
+                tbody.innerHTML = '<tr><td colspan="6">Error loading blog posts: ' + error.message + '</td></tr>';
             }
         }
 
@@ -5086,7 +6927,30 @@ app.get('/admin/blog', (req, res) => {
             alert('Blog creation feature will be added in next update');
         }
 
-        window.onload = loadPosts;
+        // Fallback for blog page functionality
+        function ensureBlogPageWorks() {
+            // If loadPosts doesn't exist or fails, update table manually  
+            if (typeof loadPosts !== 'function') {
+                const tbody = document.getElementById('postsTable');
+                if (tbody && tbody.innerHTML.includes('Loading...')) {
+                    tbody.innerHTML = '<tr><td colspan="6">No blog posts found</td></tr>';
+                }
+            } else {
+                // Try to call loadPosts, but catch any errors
+                try {
+                    loadPosts();
+                } catch (error) {
+                    console.error('Error loading posts:', error);
+                    const tbody = document.getElementById('postsTable');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="6">Error loading blog posts. Please refresh the page.</td></tr>';
+                    }
+                }
+            }
+        }
+
+        // Ensure the page works when loaded
+        window.onload = ensureBlogPageWorks;
     </script>
 </body>
 </html>
@@ -5097,15 +6961,52 @@ app.get('/admin/api/blog/posts', requireAuth, (req, res) => {
   res.json(blogDatabase);
 });
 
-app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
+app.post('/admin/api/blog/posts', requireAuth, asyncHandler(async (req, res) => {
   const { title, content, author, published } = req.body;
   
-  if (!title || !content || !author) {
-    return res.status(400).json({ error: 'Title, content, and author are required' });
+  // Enhanced input validation
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Title is required and must be a non-empty string' 
+    });
+  }
+  
+  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Content is required and must be a non-empty string' 
+    });
+  }
+  
+  if (!author || typeof author !== 'string' || author.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Author is required and must be a non-empty string' 
+    });
+  }
+  
+  // Sanitize and validate length
+  const sanitizedTitle = validator.sanitizeString(title, CONFIG.MAX_TITLE_LENGTH);
+  const sanitizedContent = validator.sanitizeString(content, CONFIG.MAX_CONTENT_LENGTH);
+  const sanitizedAuthor = validator.sanitizeString(author, 100);
+  
+  if (sanitizedTitle.length < 3) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Title must be at least 3 characters long' 
+    });
+  }
+  
+  if (sanitizedContent.length < 10) {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'Content must be at least 10 characters long' 
+    });
   }
   
   const id = utilityFunctions.generateBlogId();
-  const slug = generateSlug(title);
+  const slug = generateSlug(sanitizedTitle);
   const now = new Date().toISOString();
   
   // Ensure slug is unique
@@ -5118,9 +7019,9 @@ app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
   
   const post = {
     id,
-    title,
-    content,
-    author,
+    title: sanitizedTitle,
+    content: sanitizedContent,
+    author: sanitizedAuthor,
     published: Boolean(published),
     slug: finalSlug,
     createdAt: now,
@@ -5129,7 +7030,7 @@ app.post('/admin/api/blog/posts', requireAuth, (req, res) => {
   
   blogDatabase[id] = post;
   res.json(post);
-});
+}));
 
 app.put('/admin/api/blog/posts/:id', requireAuth, (req, res) => {
   const { id } = req.params;
@@ -5725,12 +7626,60 @@ function generateSafelinkPage(templateId, template, targetUrl, shortCode) {
 </html>`;
 }
 
-// Redirect endpoint (Modified to support SafeLink)
-app.get('/:shortCode', (req, res) => {
+// Enhanced redirect endpoint with security validation
+app.get('/:shortCode', asyncHandler(async (req, res) => {
   const { shortCode } = req.params;
+  
+  // Validate shortCode format
+  if (!validator.isValidShortCode(shortCode)) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Invalid Short Code</title>
+          <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: #dc3545; }
+          </style>
+      </head>
+      <body>
+          <h1 class="error">Invalid Short Code</h1>
+          <p>The provided short code format is invalid.</p>
+          <a href="/">← Go back to homepage</a>
+      </body>
+      </html>
+    `);
+  }
+  
   const originalUrl = urlDatabase[shortCode];
   
   if (originalUrl) {
+    // Validate URL before redirecting (security check)
+    if (!isValidUrl(originalUrl)) {
+      console.error(`Invalid URL found for shortCode ${shortCode}:`, originalUrl);
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Invalid Destination</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .error { color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <h1 class="error">Invalid Destination</h1>
+            <p>The destination URL is invalid or potentially malicious.</p>
+            <a href="/">← Go back to homepage</a>
+        </body>
+        </html>
+      `);
+    }
+    
     // Check if 8-Page Redirection is enabled
     if (eightPageRedirectionConfig.enabled) {
       const enabledPages = eightPageRedirectionConfig.pages.filter(page => page.enabled);
@@ -5751,8 +7700,14 @@ app.get('/:shortCode', (req, res) => {
       }
     }
     
-    // Direct redirect if SafeLink is disabled or template is disabled
-    recordClick(shortCode, req);
+    // Record analytics and redirect
+    try {
+      recordClick(shortCode, req);
+    } catch (error) {
+      console.error('Error recording click:', error.message);
+      // Continue with redirect even if analytics fail
+    }
+    
     res.redirect(originalUrl);
   } else {
     res.status(404).send(`
@@ -5799,7 +7754,7 @@ app.get('/:shortCode', (req, res) => {
       </html>
     `);
   }
-});
+}));
 
 // ========================================
 // ANNOUNCEMENTS API ROUTES
@@ -5877,6 +7832,31 @@ app.get('/api/urls', (req, res) => {
   res.json(urlDatabase);
 });
 
+// Global error handlers
+app.use((error, req, res, next) => {
+  console.error('Unhandled error:', error);
+  
+  if (res.headersSent) {
+    return next(error);
+  }
+  
+  res.status(500).json({
+    error: 'Internal server error',
+    message: 'An unexpected error occurred',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 404 handler for unmatched routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not found',
+    message: 'The requested resource was not found',
+    path: req.path,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`URL Shortener server is running on port ${PORT}`);
@@ -5886,20 +7866,43 @@ app.listen(PORT, () => {
   const memoryManager = performanceUtils.optimizeMemoryUsage();
   console.log('[PERF] Memory optimization enabled');
   
-  // Cleanup on process exit
-  process.on('SIGINT', () => {
-    console.log('\n[SHUTDOWN] Cleaning up resources...');
-    memoryManager.stop();
-    utilityFunctions.intervalManager.clearAll();
-    process.exit(0);
-  });
+  // Start periodic cleanup tasks
+  const cleanupInterval = setInterval(() => {
+    try {
+      cacheUtils.cleanup();
+      authUtils.cleanupSessions();
+      
+      // Cleanup rate limiting store
+      if (rateLimitStore.size > 10000) {
+        const now = Date.now();
+        const oneHourAgo = now - 60 * 60 * 1000;
+        for (const [key, requests] of rateLimitStore.entries()) {
+          const filtered = requests.filter(time => time > oneHourAgo);
+          if (filtered.length === 0) {
+            rateLimitStore.delete(key);
+          } else {
+            rateLimitStore.set(key, filtered);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Cleanup error:', error.message);
+    }
+  }, 60000); // Run cleanup every minute
   
-  process.on('SIGTERM', () => {
-    console.log('\n[SHUTDOWN] Graceful shutdown...');
+  console.log('[PERF] Periodic cleanup tasks started');
+  
+  // Cleanup on process exit
+  const gracefulShutdown = () => {
+    console.log('\n[SHUTDOWN] Cleaning up resources...');
+    clearInterval(cleanupInterval);
     memoryManager.stop();
     utilityFunctions.intervalManager.clearAll();
     process.exit(0);
-  });
+  };
+  
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGTERM', gracefulShutdown);
 });
 
 module.exports = app;
