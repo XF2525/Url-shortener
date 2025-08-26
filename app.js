@@ -35,39 +35,52 @@ app.use((req, res, next) => {
 // Rate limiting store (simple in-memory implementation)
 const rateLimitStore = new Map();
 
-// Rate limiting middleware
+// Optimized rate limiting middleware with better performance
 function rateLimit(windowMs = 60000, maxRequests = 100) {
   return (req, res, next) => {
-    const clientId = req.ip || req.connection.remoteAddress;
+    const clientId = req.ip || req.connection.remoteAddress || 'unknown';
     const now = Date.now();
     const windowStart = now - windowMs;
     
-    // Clean old entries
+    // Efficient cleanup: only clean when store gets large
     if (rateLimitStore.size > 1000) {
+      const keysToDelete = [];
+      
+      // Collect expired entries
       for (const [key, requests] of rateLimitStore.entries()) {
-        const filtered = requests.filter(time => time > windowStart);
-        if (filtered.length === 0) {
-          rateLimitStore.delete(key);
+        const recentRequests = requests.filter(time => time > windowStart);
+        if (recentRequests.length === 0) {
+          keysToDelete.push(key);
         } else {
-          rateLimitStore.set(key, filtered);
+          rateLimitStore.set(key, recentRequests);
         }
       }
+      
+      // Batch delete expired entries
+      keysToDelete.forEach(key => rateLimitStore.delete(key));
     }
     
-    // Get current requests for this client
+    // Get and filter current requests for this client
     const clientRequests = rateLimitStore.get(clientId) || [];
     const recentRequests = clientRequests.filter(time => time > windowStart);
     
     if (recentRequests.length >= maxRequests) {
       return res.status(429).json({ 
         error: 'Too many requests', 
-        retryAfter: Math.ceil(windowMs / 1000)
+        retryAfter: Math.ceil(windowMs / 1000),
+        limit: maxRequests,
+        current: recentRequests.length
       });
     }
     
-    // Add current request
+    // Add current request and update store
     recentRequests.push(now);
     rateLimitStore.set(clientId, recentRequests);
+    
+    // Add rate limit headers for transparency
+    res.setHeader('X-RateLimit-Limit', maxRequests);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - recentRequests.length));
+    res.setHeader('X-RateLimit-Reset', new Date(now + windowMs).toISOString());
     
     next();
   };
@@ -76,15 +89,33 @@ function rateLimit(windowMs = 60000, maxRequests = 100) {
 // Apply rate limiting to all routes
 app.use(rateLimit());
 
-// Enhanced input validation utilities
+// Enhanced input validation utilities with caching for better performance
 const validator = {
+  // URL validation cache for repeated validations
+  _urlCache: new Map(),
+  
   isValidUrl(url) {
+    // Check cache first for better performance
+    if (this._urlCache.has(url)) {
+      return this._urlCache.get(url);
+    }
+    
+    let isValid = false;
     try {
       const parsed = new URL(url);
-      return ['http:', 'https:'].includes(parsed.protocol);
+      isValid = ['http:', 'https:'].includes(parsed.protocol);
     } catch (e) {
-      return false;
+      isValid = false;
     }
+    
+    // Cache result but limit cache size
+    if (this._urlCache.size > 1000) {
+      const firstKey = this._urlCache.keys().next().value;
+      this._urlCache.delete(firstKey);
+    }
+    this._urlCache.set(url, isValid);
+    
+    return isValid;
   },
   
   sanitizeString(str, maxLength = 1000) {
@@ -292,16 +323,36 @@ const cacheUtils = {
     }
   },
   
-  // Periodic cleanup to prevent memory leaks
+  // Optimized periodic cleanup to prevent memory leaks
   cleanup() {
     try {
       const now = Date.now();
+      const expiredThreshold = CONFIG.CACHE_DURATIONS.STATIC_CONTENT * 2;
+      
+      // Use more efficient cleanup with batching
       ['templates', 'staticContent', 'responses'].forEach(category => {
         const cache = enhancedCache[category];
-        if (cache instanceof Map) {
+        if (cache instanceof Map && cache.size > 0) {
+          const keysToDelete = [];
+          
+          // Collect expired keys first
           for (const [key, item] of cache.entries()) {
-            if (now - item.timestamp > CONFIG.CACHE_DURATIONS.STATIC_CONTENT * 2) {
+            if (item && item.timestamp && (now - item.timestamp > expiredThreshold)) {
+              keysToDelete.push(key);
+            }
+          }
+          
+          // Batch delete expired keys
+          keysToDelete.forEach(key => cache.delete(key));
+          
+          // If cache is still too large, remove oldest entries
+          if (cache.size > CONFIG.MAX_CACHE_SIZE) {
+            const entriesToRemove = cache.size - CONFIG.MAX_CACHE_SIZE;
+            let removed = 0;
+            for (const key of cache.keys()) {
+              if (removed >= entriesToRemove) break;
               cache.delete(key);
+              removed++;
             }
           }
         }
@@ -1394,10 +1445,6 @@ const routeUtils = {
 // Legacy compatibility functions (optimized)
 function generateShortCode(length = 6) {
   return routeUtils.generateRandomCode(length);
-}
-
-function isValidUrl(string) {
-  return routeUtils.validateURL(string);
 }
 
 function generateSlug(title) {
@@ -2631,6 +2678,82 @@ app.post('/shorten', asyncHandler(async (req, res) => {
     shortCode, 
     originalUrl: sanitizedUrl,
     shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`
+  });
+}));
+
+// API endpoint for URL shortening (alternative path for API consistency)
+app.post('/api/shorten', asyncHandler(async (req, res) => {
+  const { url, originalUrl, customCode } = req.body;
+  
+  // Support both 'url' and 'originalUrl' parameters for flexibility
+  const targetUrl = url || originalUrl;
+  
+  // Enhanced validation
+  if (!targetUrl || typeof targetUrl !== 'string') {
+    return res.status(400).json({ 
+      error: 'Invalid input', 
+      message: 'url or originalUrl is required and must be a string' 
+    });
+  }
+  
+  // Sanitize and validate URL
+  const sanitizedUrl = targetUrl.trim();
+  if (!isValidUrl(sanitizedUrl)) {
+    return res.status(400).json({ 
+      error: 'Invalid URL', 
+      message: 'Please provide a valid HTTP or HTTPS URL' 
+    });
+  }
+  
+  // Check URL length
+  if (sanitizedUrl.length > CONFIG.MAX_URL_LENGTH) {
+    return res.status(400).json({ 
+      error: 'URL too long', 
+      message: `URL must be less than ${CONFIG.MAX_URL_LENGTH} characters` 
+    });
+  }
+  
+  // Generate or validate short code
+  let shortCode;
+  if (customCode) {
+    const sanitizedCode = validator.sanitizeString(customCode, CONFIG.MAX_SHORT_CODE_LENGTH);
+    if (!validator.isValidShortCode(sanitizedCode)) {
+      return res.status(400).json({ 
+        error: 'Invalid custom code', 
+        message: 'Custom code must be 3-10 characters long and contain only letters and numbers' 
+      });
+    }
+    
+    if (urlDatabase[sanitizedCode]) {
+      return res.status(409).json({ 
+        error: 'Code already exists', 
+        message: 'Please choose a different custom code' 
+      });
+    }
+    shortCode = sanitizedCode;
+  } else {
+    shortCode = routeUtils.generateUniqueCode(6, urlDatabase);
+  }
+  
+  // Store the mapping with enhanced analytics structure
+  urlDatabase[shortCode] = {
+    originalUrl: sanitizedUrl,
+    shortCode,
+    clicks: 0,
+    createdAt: new Date().toISOString(),
+    lastAccessed: null,
+    referrers: {},
+    userAgents: {},
+    isCustom: !!customCode
+  };
+  
+  // Return response
+  res.status(201).json({
+    success: true,
+    shortCode,
+    originalUrl: sanitizedUrl,
+    shortUrl: `${req.protocol}://${req.get('host')}/${shortCode}`,
+    customCode: !!customCode
   });
 }));
 
@@ -9203,23 +9326,29 @@ app.listen(PORT, () => {
       cacheUtils.cleanup();
       authUtils.cleanupSessions();
       
-      // Cleanup rate limiting store
-      if (rateLimitStore.size > 10000) {
+      // Optimized rate limiting store cleanup - use the same logic as in rate limiting
+      if (rateLimitStore.size > 5000) { // Lower threshold to prevent memory buildup
         const now = Date.now();
         const oneHourAgo = now - 60 * 60 * 1000;
+        const keysToDelete = [];
+        
+        // Collect expired keys first
         for (const [key, requests] of rateLimitStore.entries()) {
-          const filtered = requests.filter(time => time > oneHourAgo);
-          if (filtered.length === 0) {
-            rateLimitStore.delete(key);
+          const recentRequests = requests.filter(time => time > oneHourAgo);
+          if (recentRequests.length === 0) {
+            keysToDelete.push(key);
           } else {
-            rateLimitStore.set(key, filtered);
+            rateLimitStore.set(key, recentRequests);
           }
         }
+        
+        // Batch delete expired keys
+        keysToDelete.forEach(key => rateLimitStore.delete(key));
       }
     } catch (error) {
       console.error('Cleanup error:', error.message);
     }
-  }, 60000); // Run cleanup every minute
+  }, 120000); // Run cleanup every 2 minutes for better performance
   
   console.log('[PERF] Periodic cleanup tasks started');
   
