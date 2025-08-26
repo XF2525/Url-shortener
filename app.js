@@ -481,6 +481,50 @@ const utilityFunctions = {
     };
     
     return behaviors;
+  },
+
+  // Geographic distribution simulation
+  getGeographicData() {
+    const regions = [
+      { region: 'North America', share: 0.4, timezones: ['EST', 'CST', 'MST', 'PST'] },
+      { region: 'Europe', share: 0.25, timezones: ['GMT', 'CET', 'EET'] },
+      { region: 'Asia', share: 0.2, timezones: ['JST', 'CST', 'IST'] },
+      { region: 'South America', share: 0.08, timezones: ['BRT', 'ART'] },
+      { region: 'Africa', share: 0.04, timezones: ['CAT', 'WAT'] },
+      { region: 'Oceania', share: 0.03, timezones: ['AEST', 'NZST'] }
+    ];
+    
+    const random = Math.random();
+    let cumulative = 0;
+    
+    for (const region of regions) {
+      cumulative += region.share;
+      if (random <= cumulative) {
+        const timezone = region.timezones[Math.floor(Math.random() * region.timezones.length)];
+        return { region: region.region, timezone };
+      }
+    }
+    
+    return regions[0]; // fallback
+  },
+
+  // Referrer simulation for realistic traffic
+  getRandomReferrer() {
+    const referrers = [
+      'https://www.google.com/search?q=',
+      'https://www.bing.com/search?q=',
+      'https://duckduckgo.com/?q=',
+      'https://twitter.com/',
+      'https://www.facebook.com/',
+      'https://www.reddit.com/',
+      'https://www.linkedin.com/',
+      'https://www.youtube.com/',
+      'direct', // 30% direct traffic
+      'direct',
+      'direct'
+    ];
+    
+    return referrers[Math.floor(Math.random() * referrers.length)];
   }
 };
 
@@ -4757,7 +4801,7 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHand
   const agents = userAgents.length > 0 ? userAgents : REALISTIC_USER_AGENTS;
   let generated = 0;
   
-  // Generate clicks with realistic delay variations
+  // Generate clicks with realistic delay variations and enhanced simulation
   const generateClick = () => {
     if (generated >= count) {
       return;
@@ -4765,6 +4809,26 @@ app.post('/admin/api/automation/generate-clicks', requireAdvancedAuth, asyncHand
     
     const randomAgent = utilityFunctions.getRandomUserAgent(agents);
     const randomIp = utilityFunctions.generateRandomIP();
+    const behaviorData = utilityFunctions.simulateNaturalBehavior();
+    const geoData = utilityFunctions.getGeographicData();
+    const referrer = utilityFunctions.getRandomReferrer();
+    
+    // Log enhanced simulation data for analytics
+    const enhancedMockReq = {
+      get: (header) => {
+        if (header === 'User-Agent') return randomAgent;
+        if (header === 'Referer') return referrer;
+        return 'Unknown';
+      },
+      ip: randomIp,
+      connection: { remoteAddress: randomIp },
+      simulationData: {
+        behavior: behaviorData,
+        geography: geoData,
+        referrer: referrer,
+        generated: true
+      }
+    };
     
     if (simulateClick(shortCode, randomAgent, randomIp)) {
       generated++;
