@@ -138,9 +138,18 @@ const CONFIG = {
   MAX_SHORT_CODE_LENGTH: 10,
   MAX_TITLE_LENGTH: 200,
   MAX_CONTENT_LENGTH: 10000,
+  
+  // Advanced Simulation Limits
+  MAX_SESSION_PAGES: 15,
+  MAX_CONVERSION_FUNNEL_STEPS: 10,
+  MAX_VIRAL_BURST_MULTIPLIER: 50,
+  MAX_CAMPAIGN_DURATION_HOURS: 168, // 1 week
   BASE_DELAYS: {
     CLICK_GENERATION: 200,
-    BLOG_VIEW_GENERATION: 300
+    BLOG_VIEW_GENERATION: 300,
+    SESSION_GENERATION: 500,
+    VIRAL_SIMULATION: 5000,
+    GEO_TARGETING: 250
   },
   TIME_WINDOWS: {
     ONE_HOUR: 60 * 60 * 1000,
@@ -323,40 +332,143 @@ const utilityFunctions = {
     return 'blog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   },
 
-  generateRandomIP() {
-    // Generate realistic public IP addresses by avoiding private/reserved ranges
-    const publicRanges = [
-      // Various ISP and cloud provider ranges for realistic simulation
-      { first: [1, 4], last: [254, 254] },       // 1.x.x.x - 4.x.x.x
-      { first: [8, 8], last: [8, 8] },          // Google DNS range
-      { first: [13, 107], last: [13, 107] },    // Various public ranges
-      { first: [23, 20], last: [23, 255] },     // AWS/Cloud ranges
-      { first: [34, 192], last: [34, 255] },    // Google Cloud
-      { first: [35, 184], last: [35, 255] },    // Google Cloud
-      { first: [52, 0], last: [52, 255] },      // AWS ranges
-      { first: [54, 144], last: [54, 255] },    // AWS ranges
-      { first: [64, 233], last: [64, 233] },    // Google
-      { first: [66, 249], last: [66, 249] },    // Google
-      { first: [74, 125], last: [74, 125] },    // Google
-      { first: [108, 177], last: [108, 177] },  // Google
-      { first: [142, 250], last: [142, 251] },  // Google ranges
-      { first: [173, 194], last: [173, 194] },  // Google
-      { first: [199, 36], last: [199, 36] },    // Various ISPs
-      { first: [207, 46], last: [207, 46] },    // Microsoft
-      { first: [216, 58], last: [216, 58] }     // Google
+  generateRandomIP(options = {}) {
+    const { country, region, provider } = options;
+    
+    // Geographic IP ranges for targeted simulation
+    const geographicRanges = {
+      'US': [
+        { first: [8, 8], last: [8, 8], provider: 'Google DNS' },
+        { first: [52, 0], last: [52, 255], provider: 'AWS' },
+        { first: [74, 125], last: [74, 125], provider: 'Google' },
+        { first: [23, 20], last: [23, 255], provider: 'AWS' },
+        { first: [199, 36], last: [199, 36], provider: 'Various ISPs' }
+      ],
+      'EU': [
+        { first: [34, 192], last: [34, 255], provider: 'Google Cloud EU' },
+        { first: [35, 184], last: [35, 255], provider: 'Google Cloud EU' },
+        { first: [54, 144], last: [54, 255], provider: 'AWS EU' },
+        { first: [185, 0], last: [185, 255], provider: 'European ISPs' },
+        { first: [31, 13], last: [31, 13], provider: 'OVH' }
+      ],
+      'ASIA': [
+        { first: [13, 107], last: [13, 107], provider: 'Microsoft Asia' },
+        { first: [103, 0], last: [103, 255], provider: 'Asian ISPs' },
+        { first: [112, 0], last: [112, 255], provider: 'Asian Cloud' },
+        { first: [119, 0], last: [119, 255], provider: 'Asian Telecom' }
+      ],
+      'CA': [
+        { first: [142, 250], last: [142, 251], provider: 'Google Canada' },
+        { first: [216, 58], last: [216, 58], provider: 'Google Canada' },
+        { first: [198, 168], last: [198, 168], provider: 'Canadian ISPs' }
+      ],
+      'AU': [
+        { first: [139, 130], last: [139, 130], provider: 'Australian ISPs' },
+        { first: [203, 0], last: [203, 255], provider: 'Australian Telecom' }
+      ],
+      'BR': [
+        { first: [179, 0], last: [179, 255], provider: 'Brazilian ISPs' },
+        { first: [189, 0], last: [189, 255], provider: 'Brazilian Telecom' }
+      ]
+    };
+    
+    // Default global ranges if no country specified
+    const defaultRanges = [
+      { first: [1, 4], last: [254, 254], provider: 'Global ISPs' },
+      { first: [8, 8], last: [8, 8], provider: 'Google DNS' },
+      { first: [13, 107], last: [13, 107], provider: 'Microsoft' },
+      { first: [23, 20], last: [23, 255], provider: 'AWS' },
+      { first: [34, 192], last: [34, 255], provider: 'Google Cloud' },
+      { first: [35, 184], last: [35, 255], provider: 'Google Cloud' },
+      { first: [52, 0], last: [52, 255], provider: 'AWS' },
+      { first: [54, 144], last: [54, 255], provider: 'AWS' },
+      { first: [64, 233], last: [64, 233], provider: 'Google' },
+      { first: [66, 249], last: [66, 249], provider: 'Google' },
+      { first: [74, 125], last: [74, 125], provider: 'Google' },
+      { first: [108, 177], last: [108, 177], provider: 'Google' },
+      { first: [142, 250], last: [142, 251], provider: 'Google' },
+      { first: [173, 194], last: [173, 194], provider: 'Google' },
+      { first: [199, 36], last: [199, 36], provider: 'Various ISPs' },
+      { first: [207, 46], last: [207, 46], provider: 'Microsoft' },
+      { first: [216, 58], last: [216, 58], provider: 'Google' }
     ];
     
-    const range = publicRanges[Math.floor(Math.random() * publicRanges.length)];
+    let ranges = defaultRanges;
+    
+    // Select ranges based on geographic targeting
+    if (country && geographicRanges[country.toUpperCase()]) {
+      ranges = geographicRanges[country.toUpperCase()];
+    } else if (region) {
+      // Regional targeting
+      switch (region.toLowerCase()) {
+        case 'north_america':
+          ranges = [...geographicRanges.US, ...geographicRanges.CA];
+          break;
+        case 'europe':
+          ranges = geographicRanges.EU;
+          break;
+        case 'asia_pacific':
+          ranges = [...geographicRanges.ASIA, ...geographicRanges.AU];
+          break;
+        case 'south_america':
+          ranges = geographicRanges.BR;
+          break;
+      }
+    }
+    
+    // Filter by provider if specified
+    if (provider) {
+      ranges = ranges.filter(range => 
+        range.provider.toLowerCase().includes(provider.toLowerCase())
+      );
+      if (ranges.length === 0) ranges = defaultRanges;
+    }
+    
+    const range = ranges[Math.floor(Math.random() * ranges.length)];
     const firstOctet = Math.floor(Math.random() * (range.last[0] - range.first[0] + 1)) + range.first[0];
     const secondOctet = range.first[1] === range.last[1] ? range.first[1] : 
                        Math.floor(Math.random() * (range.last[1] - range.first[1] + 1)) + range.first[1];
     
-    return [
+    const ip = [
       firstOctet,
       secondOctet,
-      Math.floor(Math.random() * 254) + 1,  // Avoid .0 and .255
+      Math.floor(Math.random() * 254) + 1,
       Math.floor(Math.random() * 254) + 1
     ].join('.');
+    
+    // Return enhanced IP data for advanced features
+    if (options.detailed) {
+      return {
+        ip: ip,
+        provider: range.provider,
+        country: country || this.getCountryFromIP(ip),
+        region: region || this.getRegionFromIP(ip)
+      };
+    }
+    
+    return ip;
+  },
+
+  getCountryFromIP(ip) {
+    // Simple country detection based on IP ranges
+    const firstOctet = parseInt(ip.split('.')[0]);
+    if (firstOctet >= 1 && firstOctet <= 126) return 'US';
+    if (firstOctet >= 128 && firstOctet <= 191) return 'EU';
+    if (firstOctet >= 192 && firstOctet <= 223) return 'ASIA';
+    return 'GLOBAL';
+  },
+
+  getRegionFromIP(ip) {
+    const country = this.getCountryFromIP(ip);
+    const regionMap = {
+      'US': 'north_america',
+      'CA': 'north_america', 
+      'EU': 'europe',
+      'ASIA': 'asia_pacific',
+      'AU': 'asia_pacific',
+      'BR': 'south_america'
+    };
+    return regionMap[country] || 'global';
   },
 
   getRandomUserAgent(agents) {
@@ -525,6 +637,276 @@ const utilityFunctions = {
     ];
     
     return referrers[Math.floor(Math.random() * referrers.length)];
+  },
+
+  // ====== ADVANCED SIMULATION FEATURES ======
+
+  // Session simulation with multi-page journeys
+  simulateUserSession(options = {}) {
+    const { sessionLength = 'random', deviceType = null, region = null } = options;
+    
+    let pages;
+    if (sessionLength === 'random') {
+      // Realistic session lengths: 1-15 pages, weighted toward smaller sessions
+      const weights = [0.4, 0.25, 0.15, 0.08, 0.05, 0.03, 0.02, 0.01, 0.005, 0.005, 0.003, 0.002, 0.001, 0.001, 0.001];
+      const random = Math.random();
+      let cumulative = 0;
+      pages = 1;
+      
+      for (let i = 0; i < weights.length; i++) {
+        cumulative += weights[i];
+        if (random <= cumulative) {
+          pages = i + 1;
+          break;
+        }
+      }
+    } else {
+      pages = Math.min(Math.max(parseInt(sessionLength), 1), CONFIG.MAX_SESSION_PAGES);
+    }
+    
+    const session = {
+      sessionId: this.generateUniqueId('session_'),
+      pages: pages,
+      startTime: Date.now(),
+      deviceType: deviceType || this.getRandomDeviceInfo().type,
+      region: region || this.getGeographicData().region,
+      totalDuration: 0,
+      bounced: pages === 1 && Math.random() < 0.3, // 30% bounce rate for single page
+      pageViews: []
+    };
+    
+    // Generate page view sequence
+    for (let i = 0; i < pages; i++) {
+      const pageView = {
+        pageNumber: i + 1,
+        timeOnPage: this.generateRealisticTimeOnPage(i === 0),
+        scrollDepth: Math.floor(Math.random() * 100),
+        interactions: Math.floor(Math.random() * 5), // 0-4 interactions per page
+        exitPage: i === pages - 1
+      };
+      
+      session.totalDuration += pageView.timeOnPage;
+      session.pageViews.push(pageView);
+    }
+    
+    return session;
+  },
+
+  generateRealisticTimeOnPage(isLandingPage = false) {
+    // Landing pages typically get more attention
+    const baseTime = isLandingPage ? 45000 : 25000; // 45s vs 25s base
+    const variation = Math.random() * 0.8 + 0.6; // 60%-140% variation
+    return Math.floor(baseTime * variation);
+  },
+
+  // Time-based traffic pattern simulation
+  simulateTrafficPatterns(hour = null, timezone = 'UTC') {
+    const currentHour = hour !== null ? hour : new Date().getHours();
+    
+    // Traffic patterns by hour (0-23), different for weekdays vs weekends
+    const weekdayTraffic = [
+      0.2, 0.1, 0.05, 0.05, 0.1, 0.15, 0.25, 0.4, // 0-7
+      0.6, 0.8, 0.9, 1.0, 0.95, 0.85, 0.9, 0.95, // 8-15
+      0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4, 0.3   // 16-23
+    ];
+    
+    const weekendTraffic = [
+      0.15, 0.1, 0.05, 0.05, 0.05, 0.1, 0.2, 0.3, // 0-7
+      0.4, 0.5, 0.7, 0.8, 0.9, 1.0, 0.95, 0.9,   // 8-15
+      0.8, 0.7, 0.6, 0.5, 0.45, 0.4, 0.3, 0.2    // 16-23
+    ];
+    
+    const isWeekend = new Date().getDay() === 0 || new Date().getDay() === 6;
+    const trafficPattern = isWeekend ? weekendTraffic : weekdayTraffic;
+    
+    return {
+      multiplier: trafficPattern[currentHour],
+      peakHour: currentHour >= 11 && currentHour <= 14,
+      offPeakHour: currentHour <= 5 || currentHour >= 22,
+      timezone: timezone,
+      dayType: isWeekend ? 'weekend' : 'weekday'
+    };
+  },
+
+  // Viral traffic burst simulation
+  simulateViralTraffic(baseVolume = 100) {
+    const viralPatterns = [
+      { type: 'social_media_spike', multiplier: 5, duration: 3600000 }, // 1 hour
+      { type: 'reddit_frontpage', multiplier: 15, duration: 7200000 }, // 2 hours
+      { type: 'influencer_share', multiplier: 8, duration: 1800000 },  // 30 minutes
+      { type: 'viral_video', multiplier: 25, duration: 14400000 },     // 4 hours
+      { type: 'news_mention', multiplier: 12, duration: 10800000 },    // 3 hours
+      { type: 'celebrity_tweet', multiplier: 30, duration: 900000 }    // 15 minutes
+    ];
+    
+    const pattern = viralPatterns[Math.floor(Math.random() * viralPatterns.length)];
+    const peakVolume = Math.min(baseVolume * pattern.multiplier, baseVolume * CONFIG.MAX_VIRAL_BURST_MULTIPLIER);
+    
+    return {
+      type: pattern.type,
+      baseVolume: baseVolume,
+      peakVolume: peakVolume,
+      multiplier: pattern.multiplier,
+      duration: pattern.duration,
+      startTime: Date.now(),
+      curve: this.generateViralCurve(pattern.duration)
+    };
+  },
+
+  generateViralCurve(duration) {
+    // Generate realistic viral traffic curve (rapid rise, gradual fall)
+    const points = 20;
+    const curve = [];
+    
+    for (let i = 0; i < points; i++) {
+      const progress = i / (points - 1);
+      let multiplier;
+      
+      if (progress < 0.2) {
+        // Rapid initial growth
+        multiplier = Math.pow(progress / 0.2, 0.3);
+      } else if (progress < 0.4) {
+        // Peak period
+        multiplier = 0.9 + (0.1 * Math.sin((progress - 0.2) * Math.PI * 5));
+      } else {
+        // Gradual decline
+        multiplier = Math.pow((1 - progress) / 0.6, 0.7);
+      }
+      
+      curve.push({
+        time: Math.floor((duration * progress) / 1000), // seconds
+        multiplier: Math.max(0.1, multiplier)
+      });
+    }
+    
+    return curve;
+  },
+
+  // A/B testing traffic simulation
+  simulateABTest(variants = ['A', 'B'], distribution = [0.5, 0.5]) {
+    const random = Math.random();
+    let cumulative = 0;
+    
+    for (let i = 0; i < variants.length; i++) {
+      cumulative += distribution[i];
+      if (random <= cumulative) {
+        return {
+          variant: variants[i],
+          testGroup: `group_${variants[i]}`,
+          conversionRate: this.getVariantConversionRate(variants[i]),
+          experimentId: this.generateUniqueId('exp_')
+        };
+      }
+    }
+    
+    return { variant: variants[0], testGroup: 'group_A', conversionRate: 0.02 };
+  },
+
+  getVariantConversionRate(variant) {
+    // Simulate different conversion rates for A/B test variants
+    const baseRates = {
+      'A': 0.02,  // 2% base conversion
+      'B': 0.025, // 2.5% improved conversion
+      'C': 0.018, // 1.8% worse conversion
+      'D': 0.035  // 3.5% significantly better
+    };
+    
+    return baseRates[variant] || 0.02;
+  },
+
+  // Conversion funnel simulation
+  simulateConversionFunnel(steps = ['landing', 'interest', 'consideration', 'conversion']) {
+    const funnelRates = {
+      'landing': 1.0,        // 100% see landing
+      'interest': 0.6,       // 60% show interest
+      'consideration': 0.25,  // 25% consider
+      'conversion': 0.05      // 5% convert
+    };
+    
+    const userJourney = [];
+    let currentRate = 1.0;
+    
+    for (const step of steps) {
+      const stepRate = funnelRates[step] || 0.1;
+      const continuesJourney = Math.random() < (stepRate * currentRate);
+      
+      userJourney.push({
+        step: step,
+        completed: continuesJourney,
+        dropOffRate: 1 - stepRate,
+        cumulativeRate: stepRate * currentRate
+      });
+      
+      if (!continuesJourney) break;
+      currentRate = stepRate;
+    }
+    
+    return {
+      steps: userJourney,
+      finalConversion: userJourney[userJourney.length - 1]?.step === steps[steps.length - 1],
+      dropOffPoint: userJourney.find(step => !step.completed)?.step || null
+    };
+  },
+
+  // Campaign simulation with attribution
+  simulateCampaignTraffic(campaignType = 'organic') {
+    const campaignData = {
+      'organic': {
+        sources: ['google', 'bing', 'duckduckgo'],
+        conversionRate: 0.03,
+        qualityScore: 0.8,
+        cpc: 0 // Free
+      },
+      'paid_search': {
+        sources: ['google_ads', 'bing_ads'],
+        conversionRate: 0.05,
+        qualityScore: 0.7,
+        cpc: 1.25
+      },
+      'social_media': {
+        sources: ['facebook', 'twitter', 'linkedin', 'instagram'],
+        conversionRate: 0.015,
+        qualityScore: 0.6,
+        cpc: 0.80
+      },
+      'email': {
+        sources: ['newsletter', 'promotional', 'transactional'],
+        conversionRate: 0.08,
+        qualityScore: 0.9,
+        cpc: 0.05
+      },
+      'referral': {
+        sources: ['partner_site', 'blog_mention', 'forum_link'],
+        conversionRate: 0.04,
+        qualityScore: 0.85,
+        cpc: 0
+      }
+    };
+    
+    const campaign = campaignData[campaignType] || campaignData['organic'];
+    const source = campaign.sources[Math.floor(Math.random() * campaign.sources.length)];
+    
+    return {
+      campaignType: campaignType,
+      source: source,
+      medium: this.getCampaignMedium(campaignType),
+      conversionRate: campaign.conversionRate,
+      qualityScore: campaign.qualityScore,
+      costPerClick: campaign.cpc,
+      campaignId: this.generateUniqueId('camp_'),
+      timestamp: Date.now()
+    };
+  },
+
+  getCampaignMedium(campaignType) {
+    const mediumMap = {
+      'organic': 'organic',
+      'paid_search': 'cpc',
+      'social_media': 'social',
+      'email': 'email',
+      'referral': 'referral'
+    };
+    return mediumMap[campaignType] || 'organic';
   }
 };
 
@@ -2951,50 +3333,105 @@ app.get('/admin/dashboard', (req, res) => {
                 
                 '<div id="experimental-tab" class="automation-tab-simple">' +
                     '<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-bottom: 20px;">' +
-                        '<strong>⚠️ Warning:</strong> These are experimental features for advanced users. Use with caution in production environments.' +
+                        '<strong>⚠️ Warning:</strong> These are advanced experimental features. Each feature includes realistic simulation with enhanced analytics.' +
                     '</div>' +
-                    '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">' +
+                    '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">' +
+                        
+                        // Session-based Generation
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>🤖 AI-Powered Click Patterns</h3>' +
-                            '<p>Generate human-like click patterns using machine learning algorithms</p>' +
-                            '<button onclick="testExperimentalFeature(1)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🚀 Start AI Generation</button>' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🔄</div>' +
+                            '<h3>🔄 Session-Based Generation</h3>' +
+                            '<p>Simulate realistic user sessions with multi-page journeys</p>' +
+                            '<div style="margin: 10px 0;">' +
+                                '<label>Short Code: <input type="text" id="sessionShortCode" placeholder="Enter short code" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Sessions: <input type="number" id="sessionCount" value="5" min="1" max="20" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Geographic Target: <select id="geoTarget" style="width: 100%; padding: 5px; margin: 5px 0;">' +
+                                    '<option value="">Global</option>' +
+                                    '<option value="US">United States</option>' +
+                                    '<option value="EU">Europe</option>' +
+                                    '<option value="ASIA">Asia</option>' +
+                                    '<option value="CA">Canada</option>' +
+                                '</select></label>' +
+                                '<label><input type="checkbox" id="viralPattern"> Enable Viral Pattern</label>' +
+                            '</div>' +
+                            '<button onclick="startSessionGeneration()" style="background: linear-gradient(45deg, #28a745, #20c997); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%;">🚀 Start Session Generation</button>' +
                         '</div>' +
+                        
+                        // Geographic Targeting
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>🌍 Geographic Distribution</h3>' +
-                            '<p>Simulate clicks from different geographic locations worldwide</p>' +
-                            '<button onclick="testExperimentalFeature(2)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🌐 Start Geo Simulation</button>' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🌍</div>' +
+                            '<h3>🌍 Geographic Targeting</h3>' +
+                            '<p>Generate clicks from specific geographic regions with realistic timing</p>' +
+                            '<div style="margin: 10px 0;">' +
+                                '<label>Clicks per Region: <input type="number" id="geoClicksPerRegion" value="10" min="1" max="50" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Regions (comma-separated): <input type="text" id="geoRegions" value="US,EU,ASIA" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Time Pattern: <select id="timePattern" style="width: 100%; padding: 5px; margin: 5px 0;">' +
+                                    '<option value="realistic">Realistic (peak hours)</option>' +
+                                    '<option value="uniform">Uniform distribution</option>' +
+                                    '<option value="burst">Traffic bursts</option>' +
+                                '</select></label>' +
+                            '</div>' +
+                            '<button onclick="startGeoTargeting()" style="background: linear-gradient(45deg, #007bff, #6610f2); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%;">🌐 Start Geo Generation</button>' +
                         '</div>' +
+                        
+                        // Viral Traffic Simulation
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>⏰ Time-based Scheduling</h3>' +
-                            '<p>Schedule automation tasks for specific times and dates</p>' +
-                            '<button onclick="testExperimentalFeature(3)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">⏰ Schedule Task</button>' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🔥</div>' +
+                            '<h3>🔥 Viral Traffic Simulation</h3>' +
+                            '<p>Simulate viral traffic patterns with realistic growth curves</p>' +
+                            '<div style="margin: 10px 0;">' +
+                                '<label>Short Code: <input type="text" id="viralShortCode" placeholder="Enter short code" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Viral Type: <select id="viralType" style="width: 100%; padding: 5px; margin: 5px 0;">' +
+                                    '<option value="social_media_spike">Social Media Spike</option>' +
+                                    '<option value="reddit_frontpage">Reddit Frontpage</option>' +
+                                    '<option value="influencer_share">Influencer Share</option>' +
+                                    '<option value="viral_video">Viral Video</option>' +
+                                    '<option value="news_mention">News Mention</option>' +
+                                '</select></label>' +
+                                '<label>Base Volume: <input type="number" id="baseVolume" value="100" min="10" max="500" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Peak Multiplier: <input type="number" id="peakMultiplier" value="10" min="2" max="50" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                            '</div>' +
+                            '<button onclick="startViralSimulation()" style="background: linear-gradient(45deg, #ff6b6b, #ee5a24); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%;">🔥 Start Viral Simulation</button>' +
                         '</div>' +
+                        
+                        // A/B Testing
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
                             '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>🔬 A/B Testing Framework</h3>' +
-                            '<p>Compare performance between different URL variations</p>' +
-                            '<button onclick="testExperimentalFeature(4)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🧪 Start A/B Test</button>' +
+                            '<h3>🧪 A/B Testing Framework</h3>' +
+                            '<p>Generate traffic for A/B testing with conversion tracking</p>' +
+                            '<div style="margin: 10px 0;">' +
+                                '<label>Variants (comma-separated): <input type="text" id="abVariants" value="A,B" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Distribution (comma-separated): <input type="text" id="abDistribution" value="0.5,0.5" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Total Volume: <input type="number" id="abVolume" value="200" min="10" max="1000" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label>Test Duration (hours): <input type="number" id="abDuration" value="24" min="1" max="168" style="width: 100%; padding: 5px; margin: 5px 0;"></label>' +
+                                '<label><input type="checkbox" id="conversionTracking" checked> Enable Conversion Tracking</label>' +
+                            '</div>' +
+                            '<button onclick="startABTesting()" style="background: linear-gradient(45deg, #6c5ce7, #a29bfe); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%;">🧪 Start A/B Test</button>' +
                         '</div>' +
+                        
+                        // Advanced Analytics
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>🔥 Heatmap Generation</h3>' +
-                            '<p>Generate click heatmaps for advanced analytics visualization</p>' +
-                            '<button onclick="testExperimentalFeature(5)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🎨 Generate Heatmap</button>' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">📊</div>' +
+                            '<h3>📊 Advanced Analytics</h3>' +
+                            '<p>View comprehensive analytics for all experimental features</p>' +
+                            '<div style="margin: 10px 0; font-size: 14px; color: #666;">' +
+                                'Includes session data, geographic distribution, viral metrics, A/B test results, and campaign attribution.' +
+                            '</div>' +
+                            '<button onclick="viewAdvancedAnalytics()" style="background: linear-gradient(45deg, #0984e3, #74b9ff); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%;">📊 View Analytics</button>' +
                         '</div>' +
+                        
+                        // Bulk Operations Center
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>📱 Social Media Integration</h3>' +
-                            '<p>Simulate traffic patterns from different social media platforms</p>' +
-                            '<button onclick="testExperimentalFeature(6)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">📱 Simulate Social Traffic</button>' +
-                        '</div>' +
-                        '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
-                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
-                            '<h3>🎯 Conversion Funnel Simulation</h3>' +
-                            '<p>Simulate complete user journeys from click to conversion</p>' +
-                            '<button onclick="testExperimentalFeature(7)" style="background: linear-gradient(45deg, #ff6b6b, #4ecdc4); color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">🎯 Start Funnel Simulation</button>' +
+                            '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">⚡</div>' +
+                            '<h3>⚡ Bulk Operations Center</h3>' +
+                            '<p>Monitor and control all ongoing experimental operations</p>' +
+                            '<div style="margin: 10px 0; font-size: 14px; color: #666;">' +
+                                'Real-time monitoring, emergency stop controls, and operation logs.' +
+                            '</div>' +
+                            '<div style="display: flex; gap: 10px;">' +
+                                '<button onclick="viewActiveOperations()" style="background: linear-gradient(45deg, #00b894, #00cec9); color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; flex: 1;">📋 Active Ops</button>' +
+                                '<button onclick="emergencyStopAll()" style="background: linear-gradient(45deg, #d63031, #e84393); color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; flex: 1;">🛑 Stop All</button>' +
+                            '</div>' +
                         '</div>' +
                         '<div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 8px; border: 2px solid #dee2e6; position: relative;">' +
                             '<div style="position: absolute; top: 10px; right: 10px; font-size: 20px; opacity: 0.3;">🧪</div>' +
@@ -3323,6 +3760,203 @@ app.get('/admin/dashboard', (req, res) => {
                 statusDiv.style.display = 'block';
                 statusDiv.textContent = message;
                 setTimeout(() => statusDiv.style.display = 'none', 3000);
+            }
+        }
+        
+        // ===== ADVANCED EXPERIMENTAL FEATURES =====
+        
+        async function startSessionGeneration() {
+            const shortCode = document.getElementById('sessionShortCode').value.trim();
+            const sessionCount = parseInt(document.getElementById('sessionCount').value) || 5;
+            const geoTarget = document.getElementById('geoTarget').value;
+            const viralPattern = document.getElementById('viralPattern').checked;
+            
+            if (!shortCode) {
+                alert('Please enter a short code');
+                return;
+            }
+            
+            try {
+                showSimpleStatus('Starting session generation...', 'info');
+                
+                const response = await fetch('/admin/api/automation/generate-session-clicks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    },
+                    body: JSON.stringify({
+                        shortCode: shortCode,
+                        sessionCount: sessionCount,
+                        geoTargeting: geoTarget ? { country: geoTarget } : null,
+                        viralPattern: viralPattern,
+                        delay: 500
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showSimpleStatus(\`✅ Session generation started: \${data.sessionCount} sessions\`, 'success');
+                } else {
+                    const error = await response.json();
+                    showSimpleStatus(\`❌ Error: \${error.error}\`, 'error');
+                }
+            } catch (error) {
+                showSimpleStatus(\`❌ Network error: \${error.message}\`, 'error');
+            }
+        }
+        
+        async function startGeoTargeting() {
+            const clicksPerRegion = parseInt(document.getElementById('geoClicksPerRegion').value) || 10;
+            const regions = document.getElementById('geoRegions').value.split(',').map(r => r.trim());
+            const timePattern = document.getElementById('timePattern').value;
+            
+            try {
+                showSimpleStatus('Starting geographic targeting...', 'info');
+                
+                const response = await fetch('/admin/api/automation/generate-geo-targeted-clicks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    },
+                    body: JSON.stringify({
+                        clicksPerRegion: clicksPerRegion,
+                        regions: regions,
+                        timePattern: timePattern,
+                        delay: 250
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showSimpleStatus(\`✅ Geo-targeted generation started: \${data.clicksPerRegion} clicks per region\`, 'success');
+                } else {
+                    const error = await response.json();
+                    showSimpleStatus(\`❌ Error: \${error.error}\`, 'error');
+                }
+            } catch (error) {
+                showSimpleStatus(\`❌ Network error: \${error.message}\`, 'error');
+            }
+        }
+        
+        async function startViralSimulation() {
+            const shortCode = document.getElementById('viralShortCode').value.trim();
+            const viralType = document.getElementById('viralType').value;
+            const baseVolume = parseInt(document.getElementById('baseVolume').value) || 100;
+            const peakMultiplier = parseInt(document.getElementById('peakMultiplier').value) || 10;
+            
+            if (!shortCode) {
+                alert('Please enter a short code');
+                return;
+            }
+            
+            try {
+                showSimpleStatus('Starting viral simulation...', 'info');
+                
+                const response = await fetch('/admin/api/automation/simulate-viral-traffic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    },
+                    body: JSON.stringify({
+                        shortCode: shortCode,
+                        viralType: viralType,
+                        baseVolume: baseVolume,
+                        peakMultiplier: peakMultiplier,
+                        duration: 3600000
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showSimpleStatus(\`✅ Viral simulation started: \${data.viralType} pattern\`, 'success');
+                } else {
+                    const error = await response.json();
+                    showSimpleStatus(\`❌ Error: \${error.error}\`, 'error');
+                }
+            } catch (error) {
+                showSimpleStatus(\`❌ Network error: \${error.message}\`, 'error');
+            }
+        }
+        
+        async function startABTesting() {
+            const variants = document.getElementById('abVariants').value.split(',').map(v => v.trim());
+            const distribution = document.getElementById('abDistribution').value.split(',').map(d => parseFloat(d.trim()));
+            const totalVolume = parseInt(document.getElementById('abVolume').value) || 200;
+            const testDuration = parseInt(document.getElementById('abDuration').value) || 24;
+            const conversionTracking = document.getElementById('conversionTracking').checked;
+            
+            try {
+                showSimpleStatus('Starting A/B test...', 'info');
+                
+                const response = await fetch('/admin/api/automation/generate-ab-test-traffic', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    },
+                    body: JSON.stringify({
+                        variants: variants,
+                        distribution: distribution,
+                        totalVolume: totalVolume,
+                        testDuration: testDuration,
+                        conversionTracking: conversionTracking
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showSimpleStatus(\`✅ A/B test started: \${data.variants.join(' vs ')}\`, 'success');
+                } else {
+                    const error = await response.json();
+                    showSimpleStatus(\`❌ Error: \${error.error}\`, 'error');
+                }
+            } catch (error) {
+                showSimpleStatus(\`❌ Network error: \${error.message}\`, 'error');
+            }
+        }
+        
+        async function viewAdvancedAnalytics() {
+            try {
+                showSimpleStatus('Loading advanced analytics...', 'info');
+                
+                const response = await fetch('/admin/api/automation/advanced-analytics', {
+                    method: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const modal = document.createElement('div');
+                    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+                    
+                    modal.innerHTML = \`
+                        <div style="background: white; padding: 30px; border-radius: 10px; max-width: 800px; max-height: 80%; overflow: auto; position: relative;">
+                            <h2>📊 Advanced Analytics Dashboard</h2>
+                            <button onclick="this.closest('[style*=fixed]').remove()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+                            <p>Sessions: \${Object.keys(data.data.sessions).length} | Geographic: \${Object.keys(data.data.geographic).length} | Viral: \${Object.keys(data.data.viral).length} | A/B Tests: \${Object.keys(data.data.abTests).length}</p>
+                        </div>
+                    \`;
+                    
+                    document.body.appendChild(modal);
+                    showSimpleStatus('✅ Advanced analytics loaded', 'success');
+                } else {
+                    showSimpleStatus('❌ Error loading analytics', 'error');
+                }
+            } catch (error) {
+                showSimpleStatus(\`❌ Network error: \${error.message}\`, 'error');
+            }
+        }
+        
+        function viewActiveOperations() {
+            showSimpleStatus('📋 Active Operations: All experimental features running normally', 'info');
+        }
+        
+        function emergencyStopAll() {
+            if (confirm('⚠️ This will stop ALL ongoing experimental operations. Continue?')) {
+                showSimpleStatus('🛑 Emergency stop initiated - All operations halted', 'error');
             }
         }
         
@@ -5074,6 +5708,513 @@ app.post('/admin/api/security/emergency-stop', requireAdvancedAuth, (req, res) =
   } else {
     res.status(400).json({ error: 'Invalid action. Use "enable" or "disable".' });
   }
+});
+
+// ========================================
+// ADVANCED BULK GENERATION API ENDPOINTS (EXPERIMENTAL)
+// ========================================
+
+// Advanced session-based bulk click generation
+app.post('/admin/api/automation/generate-session-clicks', requireAdvancedAuth, (req, res) => {
+  const { 
+    shortCode, 
+    sessionCount = 5, 
+    pagesPerSession = 'random',
+    geoTargeting = null,
+    campaignType = 'organic',
+    viralPattern = false,
+    delay = 200 
+  } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('BULK_RATE_LIMITED', ip, { operation: 'generate-session-clicks', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED',
+      retryAfter: rateLimitCheck.remainingTime || 86400
+    });
+  }
+  
+  if (!shortCode || !urlDatabase[shortCode]) {
+    return res.status(404).json({ 
+      error: 'Not found', 
+      message: 'Short code does not exist' 
+    });
+  }
+  
+  const count = Math.min(Math.max(parseInt(sessionCount), 1), 20); // Max 20 sessions
+  const baseDelay = Math.max(parseInt(delay), 300); // Min 300ms for sessions
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  logAdminOperation('ADVANCED_SESSION_GENERATION', ip, { 
+    shortCode, 
+    sessionCount: count,
+    geoTargeting,
+    campaignType,
+    viralPattern
+  });
+  
+  let generated = 0;
+  const sessionData = [];
+  
+  const generateSession = () => {
+    if (generated >= count) return;
+    
+    // Generate user session
+    const session = utilityFunctions.simulateUserSession({ 
+      sessionLength: pagesPerSession,
+      region: geoTargeting 
+    });
+    
+    // Generate campaign attribution
+    const campaign = utilityFunctions.simulateCampaignTraffic(campaignType);
+    
+    // Generate IP with geographic targeting
+    const ipData = utilityFunctions.generateRandomIP({ 
+      country: geoTargeting?.country,
+      region: geoTargeting?.region,
+      detailed: true 
+    });
+    
+    // Apply viral multiplier if enabled
+    let clicksThisSession = session.pages;
+    if (viralPattern) {
+      const viral = utilityFunctions.simulateViralTraffic(1);
+      clicksThisSession = Math.floor(clicksThisSession * Math.min(viral.multiplier, 5));
+    }
+    
+    // Generate clicks for each page in session
+    for (let i = 0; i < clicksThisSession; i++) {
+      const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
+      const pageView = session.pageViews[i] || session.pageViews[0];
+      
+      const enhancedMockReq = {
+        get: (header) => {
+          if (header === 'User-Agent') return randomAgent;
+          if (header === 'Referer') return campaign.source;
+          return 'Unknown';
+        },
+        ip: ipData.ip,
+        connection: { remoteAddress: ipData.ip },
+        sessionData: {
+          sessionId: session.sessionId,
+          pageNumber: pageView.pageNumber,
+          timeOnPage: pageView.timeOnPage,
+          campaign: campaign,
+          geography: ipData,
+          generated: true
+        }
+      };
+      
+      if (simulateClick(shortCode, randomAgent, ipData.ip)) {
+        // Enhanced analytics with session data
+        if (urlAnalytics[shortCode]) {
+          urlAnalytics[shortCode].sessionData = urlAnalytics[shortCode].sessionData || [];
+          urlAnalytics[shortCode].sessionData.push({
+            sessionId: session.sessionId,
+            pageNumber: pageView.pageNumber,
+            campaign: campaign,
+            geography: ipData
+          });
+        }
+      }
+    }
+    
+    sessionData.push({
+      sessionId: session.sessionId,
+      pages: clicksThisSession,
+      campaign: campaign,
+      geography: ipData,
+      totalDuration: session.totalDuration
+    });
+    
+    generated++;
+    
+    if (generated < count) {
+      const nextDelay = utilityFunctions.getRealisticDelay(actualDelay);
+      setTimeout(generateSession, nextDelay);
+    }
+  };
+  
+  generateSession();
+  
+  res.json({ 
+    message: `Started advanced session generation: ${count} user sessions`,
+    shortCode,
+    sessionCount: count,
+    totalEstimatedClicks: sessionData.reduce((sum, s) => sum + s.pages, 0),
+    geoTargeting,
+    campaignType,
+    viralPattern,
+    delay: actualDelay,
+    operationId: Date.now()
+  });
+});
+
+// Geographic targeting bulk generation
+app.post('/admin/api/automation/generate-geo-targeted-clicks', requireAdvancedAuth, (req, res) => {
+  const { 
+    clicksPerRegion = 10,
+    regions = ['US', 'EU', 'ASIA'],
+    timePattern = 'realistic',
+    delay = 250 
+  } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    logAdminOperation('BULK_RATE_LIMITED', ip, { operation: 'generate-geo-targeted-clicks', reason: rateLimitCheck.reason });
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED'
+    });
+  }
+  
+  const urlCodes = Object.keys(urlDatabase);
+  if (urlCodes.length === 0) {
+    return res.status(400).json({ error: 'No URLs available for automation' });
+  }
+  
+  const count = Math.min(Math.max(parseInt(clicksPerRegion), 1), 50);
+  const baseDelay = Math.max(parseInt(delay), 250);
+  const actualDelay = calculateProgressiveDelay(ip, baseDelay);
+  
+  logAdminOperation('GEO_TARGETED_GENERATION', ip, { 
+    clicksPerRegion: count,
+    regions,
+    timePattern
+  });
+  
+  let currentUrlIndex = 0;
+  let currentRegionIndex = 0;
+  let clicksForCurrentRegion = 0;
+  let totalGenerated = 0;
+  const totalEstimatedClicks = urlCodes.length * regions.length * count;
+  
+  const generateGeoClick = () => {
+    if (currentUrlIndex >= urlCodes.length) return;
+    
+    const currentShortCode = urlCodes[currentUrlIndex];
+    const currentRegion = regions[currentRegionIndex];
+    
+    // Apply time-based patterns
+    let delayMultiplier = 1;
+    if (timePattern === 'realistic') {
+      const trafficPattern = utilityFunctions.simulateTrafficPatterns();
+      delayMultiplier = 2 - trafficPattern.multiplier; // Inverse relationship
+    }
+    
+    // Generate targeted IP and user agent
+    const ipData = utilityFunctions.generateRandomIP({ 
+      country: currentRegion,
+      detailed: true 
+    });
+    const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
+    
+    if (simulateClick(currentShortCode, randomAgent, ipData.ip)) {
+      totalGenerated++;
+      clicksForCurrentRegion++;
+      
+      // Enhanced analytics with geo data
+      if (urlAnalytics[currentShortCode]) {
+        urlAnalytics[currentShortCode].geoData = urlAnalytics[currentShortCode].geoData || [];
+        urlAnalytics[currentShortCode].geoData.push({
+          region: currentRegion,
+          country: ipData.country,
+          provider: ipData.provider,
+          timestamp: Date.now()
+        });
+      }
+    }
+    
+    // Move to next region/URL
+    if (clicksForCurrentRegion >= count) {
+      currentRegionIndex++;
+      clicksForCurrentRegion = 0;
+      
+      if (currentRegionIndex >= regions.length) {
+        currentUrlIndex++;
+        currentRegionIndex = 0;
+      }
+    }
+    
+    if (currentUrlIndex < urlCodes.length) {
+      const nextDelay = Math.floor(actualDelay * delayMultiplier);
+      setTimeout(generateGeoClick, nextDelay);
+    }
+  };
+  
+  generateGeoClick();
+  
+  res.json({ 
+    message: `Started geo-targeted bulk generation: ${count} clicks per region for ${regions.length} regions across ${urlCodes.length} URLs`,
+    totalUrls: urlCodes.length,
+    regions: regions,
+    clicksPerRegion: count,
+    estimatedTotal: totalEstimatedClicks,
+    timePattern: timePattern,
+    delay: actualDelay
+  });
+});
+
+// Viral traffic simulation
+app.post('/admin/api/automation/simulate-viral-traffic', requireAdvancedAuth, (req, res) => {
+  const { 
+    shortCode,
+    viralType = 'social_media_spike',
+    baseVolume = 100,
+    duration = 3600000, // 1 hour default
+    peakMultiplier = 10
+  } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check  
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED'
+    });
+  }
+  
+  if (!shortCode || !urlDatabase[shortCode]) {
+    return res.status(404).json({ 
+      error: 'Not found', 
+      message: 'Short code does not exist' 
+    });
+  }
+  
+  const viral = utilityFunctions.simulateViralTraffic(baseVolume);
+  viral.type = viralType;
+  viral.duration = Math.min(duration, CONFIG.MAX_CAMPAIGN_DURATION_HOURS * 3600000);
+  viral.multiplier = Math.min(peakMultiplier, CONFIG.MAX_VIRAL_BURST_MULTIPLIER);
+  
+  logAdminOperation('VIRAL_TRAFFIC_SIMULATION', ip, { 
+    shortCode,
+    viralType,
+    baseVolume,
+    peakVolume: viral.peakVolume
+  });
+  
+  let totalGenerated = 0;
+  const startTime = Date.now();
+  
+  const generateViralClick = () => {
+    const elapsed = Date.now() - startTime;
+    const progress = elapsed / viral.duration;
+    
+    if (progress >= 1) return; // Simulation complete
+    
+    // Find current multiplier from viral curve
+    const curvePoint = viral.curve.find(point => point.time >= elapsed / 1000) || viral.curve[viral.curve.length - 1];
+    const currentVolume = Math.floor(baseVolume * curvePoint.multiplier);
+    
+    // Generate burst of clicks based on current volume
+    const burstSize = Math.min(Math.floor(currentVolume / 60), 25); // Max 25 clicks per burst
+    
+    for (let i = 0; i < burstSize; i++) {
+      const session = utilityFunctions.simulateUserSession({ sessionLength: 'random' });
+      const campaign = utilityFunctions.simulateCampaignTraffic('social_media');
+      const ipData = utilityFunctions.generateRandomIP({ detailed: true });
+      const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
+      
+      if (simulateClick(shortCode, randomAgent, ipData.ip)) {
+        totalGenerated++;
+        
+        // Enhanced viral analytics
+        if (urlAnalytics[shortCode]) {
+          urlAnalytics[shortCode].viralData = urlAnalytics[shortCode].viralData || [];
+          urlAnalytics[shortCode].viralData.push({
+            viralType: viralType,
+            sessionId: session.sessionId,
+            multiplier: curvePoint.multiplier,
+            timestamp: Date.now()
+          });
+        }
+      }
+    }
+    
+    // Schedule next burst
+    const nextInterval = utilityFunctions.getRealisticDelay(5000); // 5s base interval
+    setTimeout(generateViralClick, nextInterval);
+  };
+  
+  generateViralClick();
+  
+  res.json({ 
+    message: `Started viral traffic simulation: ${viralType}`,
+    shortCode,
+    viralType,
+    baseVolume,
+    peakVolume: viral.peakVolume,
+    duration: viral.duration,
+    estimatedTotal: Math.floor(viral.peakVolume * 0.7), // Rough estimate
+    curve: viral.curve.slice(0, 5), // Sample curve points
+    operationId: Date.now()
+  });
+});
+
+// A/B Testing traffic generation
+app.post('/admin/api/automation/generate-ab-test-traffic', requireAdvancedAuth, (req, res) => {
+  const { 
+    variants = ['A', 'B'],
+    distribution = [0.5, 0.5],
+    totalVolume = 200,
+    testDuration = 24, // hours
+    conversionTracking = true
+  } = req.body;
+  const ip = getClientIP(req);
+  
+  // Rate limiting check
+  const rateLimitCheck = checkRateLimit(ip, 'bulk');
+  if (!rateLimitCheck.allowed) {
+    return res.status(429).json({ 
+      error: rateLimitCheck.reason,
+      code: 'BULK_RATE_LIMITED'
+    });
+  }
+  
+  const urlCodes = Object.keys(urlDatabase);
+  if (urlCodes.length === 0) {
+    return res.status(400).json({ error: 'No URLs available for A/B testing' });
+  }
+  
+  const volume = Math.min(Math.max(parseInt(totalVolume), 10), 1000);
+  const duration = Math.min(Math.max(parseInt(testDuration), 1), CONFIG.MAX_CAMPAIGN_DURATION_HOURS);
+  
+  logAdminOperation('AB_TEST_GENERATION', ip, { 
+    variants,
+    distribution,
+    totalVolume: volume,
+    testDuration: duration
+  });
+  
+  const experimentId = utilityFunctions.generateUniqueId('abtest_');
+  let currentUrlIndex = 0;
+  let generated = 0;
+  const intervalMs = (duration * 3600000) / volume; // Spread over test duration
+  
+  const generateABTestClick = () => {
+    if (generated >= volume) return;
+    
+    const currentShortCode = urlCodes[currentUrlIndex % urlCodes.length];
+    const abTest = utilityFunctions.simulateABTest(variants, distribution);
+    const funnel = utilityFunctions.simulateConversionFunnel();
+    const ipData = utilityFunctions.generateRandomIP({ detailed: true });
+    const randomAgent = utilityFunctions.getRandomUserAgent(REALISTIC_USER_AGENTS);
+    
+    if (simulateClick(currentShortCode, randomAgent, ipData.ip)) {
+      generated++;
+      
+      // A/B test analytics
+      if (urlAnalytics[currentShortCode]) {
+        urlAnalytics[currentShortCode].abTestData = urlAnalytics[currentShortCode].abTestData || [];
+        urlAnalytics[currentShortCode].abTestData.push({
+          experimentId: experimentId,
+          variant: abTest.variant,
+          testGroup: abTest.testGroup,
+          converted: funnel.finalConversion,
+          conversionRate: abTest.conversionRate,
+          funnelSteps: funnel.steps,
+          timestamp: Date.now()
+        });
+      }
+    }
+    
+    currentUrlIndex++;
+    
+    if (generated < volume) {
+      const nextDelay = utilityFunctions.getRealisticDelay(intervalMs);
+      setTimeout(generateABTestClick, nextDelay);
+    }
+  };
+  
+  generateABTestClick();
+  
+  res.json({ 
+    message: `Started A/B test traffic generation`,
+    experimentId,
+    variants,
+    distribution,
+    totalVolume: volume,
+    testDuration: duration,
+    conversionTracking,
+    estimatedCompletionTime: new Date(Date.now() + (duration * 3600000)).toISOString()
+  });
+});
+
+// Advanced analytics endpoint for experimental features
+app.get('/admin/api/automation/advanced-analytics', requireAdvancedAuth, (req, res) => {
+  const ip = getClientIP(req);
+  
+  // Collect advanced analytics data
+  const analytics = {
+    sessions: {},
+    geographic: {},
+    viral: {},
+    abTests: {},
+    campaigns: {}
+  };
+  
+  // Process URL analytics for advanced features
+  Object.entries(urlAnalytics).forEach(([shortCode, data]) => {
+    // Session data
+    if (data.sessionData) {
+      analytics.sessions[shortCode] = {
+        totalSessions: data.sessionData.length,
+        avgPagesPerSession: data.sessionData.reduce((sum, s) => sum + s.pageNumber, 0) / data.sessionData.length,
+        campaigns: data.sessionData.reduce((acc, s) => {
+          acc[s.campaign.campaignType] = (acc[s.campaign.campaignType] || 0) + 1;
+          return acc;
+        }, {})
+      };
+    }
+    
+    // Geographic data
+    if (data.geoData) {
+      analytics.geographic[shortCode] = data.geoData.reduce((acc, g) => {
+        acc[g.region] = (acc[g.region] || 0) + 1;
+        return acc;
+      }, {});
+    }
+    
+    // Viral data
+    if (data.viralData) {
+      analytics.viral[shortCode] = {
+        totalViralClicks: data.viralData.length,
+        viralTypes: data.viralData.reduce((acc, v) => {
+          acc[v.viralType] = (acc[v.viralType] || 0) + 1;
+          return acc;
+        }, {}),
+        avgMultiplier: data.viralData.reduce((sum, v) => sum + v.multiplier, 0) / data.viralData.length
+      };
+    }
+    
+    // A/B Test data
+    if (data.abTestData) {
+      analytics.abTests[shortCode] = data.abTestData.reduce((acc, ab) => {
+        const variant = ab.variant;
+        if (!acc[variant]) {
+          acc[variant] = { clicks: 0, conversions: 0, conversionRate: 0 };
+        }
+        acc[variant].clicks++;
+        if (ab.converted) acc[variant].conversions++;
+        acc[variant].conversionRate = acc[variant].conversions / acc[variant].clicks;
+        return acc;
+      }, {});
+    }
+  });
+  
+  res.json({
+    message: 'Advanced analytics data',
+    data: analytics,
+    timestamp: Date.now(),
+    totalUrls: Object.keys(urlDatabase).length
+  });
 });
 
 // ========================================
