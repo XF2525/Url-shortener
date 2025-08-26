@@ -1862,20 +1862,50 @@ function requireAdvancedAuth(req, res, next) {
     });
   }
   
-  // Basic auth check
-  const auth = req.headers.authorization;
-  if (!auth || auth !== `Bearer ${ADMIN_PASSWORD}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    // Basic auth check
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Unauthorized', 
+        message: 'Missing or invalid authorization header' 
+      });
+    }
+    
+    const token = auth.substring(7); // Remove 'Bearer ' prefix
+    
+    // Check if it's the master password (for initial login)
+    if (token === ADMIN_PASSWORD) {
+      // Enhanced security checks for automation endpoints
+      const ip = getClientIP(req);
+      const path = req.path;
+      
+      // Log the operation attempt
+      logAdminOperation('AUTH_CHECK', ip, { path, userAgent: req.get('User-Agent') });
+      
+      return next();
+    }
+    
+    // Check session token
+    if (authUtils.validateSession(token)) {
+      // Enhanced security checks for automation endpoints
+      const ip = getClientIP(req);
+      const path = req.path;
+      
+      // Log the operation attempt
+      logAdminOperation('AUTH_CHECK', ip, { path, userAgent: req.get('User-Agent') });
+      
+      return next();
+    }
+    
+    return res.status(401).json({ 
+      error: 'Unauthorized', 
+      message: 'Invalid or expired session' 
+    });
+  } catch (error) {
+    console.error('Advanced auth middleware error:', error);
+    return res.status(500).json({ error: 'Authentication error' });
   }
-  
-  // Enhanced security checks for automation endpoints
-  const ip = getClientIP(req);
-  const path = req.path;
-  
-  // Log the operation attempt
-  logAdminOperation('AUTH_CHECK', ip, { path, userAgent: req.get('User-Agent') });
-  
-  next();
 }
 
 // HTML Template utilities for efficiency
