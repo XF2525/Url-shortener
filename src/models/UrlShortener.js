@@ -10,6 +10,9 @@ class UrlShortenerModel {
     // In-memory storage (URLs are lost when server restarts)
     this.urlDatabase = new Map();
     this.analytics = new Map();
+    
+    // Reverse mapping for efficient URL lookup (performance optimization)
+    this.urlToShortCode = new Map();
   }
 
   /**
@@ -42,18 +45,17 @@ class UrlShortenerModel {
         };
       }
 
-      // Check if URL already exists
-      for (const [shortCode, data] of this.urlDatabase.entries()) {
-        if (data.originalUrl === originalUrl) {
-          return {
-            success: true,
-            data: {
-              shortCode,
-              originalUrl,
-              existingUrl: true
-            }
-          };
-        }
+      // Check if URL already exists (efficient O(1) lookup)
+      if (this.urlToShortCode.has(originalUrl)) {
+        const existingShortCode = this.urlToShortCode.get(originalUrl);
+        return {
+          success: true,
+          data: {
+            shortCode: existingShortCode,
+            originalUrl,
+            existingUrl: true
+          }
+        };
       }
 
       // Generate unique short code
@@ -81,6 +83,10 @@ class UrlShortenerModel {
       };
 
       this.urlDatabase.set(shortCode, urlData);
+      
+      // Maintain reverse mapping for efficiency
+      this.urlToShortCode.set(originalUrl, shortCode);
+      
       this.analytics.set(shortCode, {
         history: [],
         dailyStats: new Map(),

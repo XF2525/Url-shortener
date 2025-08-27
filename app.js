@@ -87,6 +87,14 @@ app.use((error, req, res, next) => {
 function gracefulShutdown() {
   console.log('\n[SHUTDOWN] Gracefully shutting down...');
   
+  // Stop auth cleanup interval
+  try {
+    const { stopAuthCleanup } = require('./src/middleware/auth');
+    stopAuthCleanup();
+  } catch (error) {
+    console.log('[SHUTDOWN] Note: Auth cleanup already stopped');
+  }
+  
   // Close server
   server.close(() => {
     console.log('[SHUTDOWN] HTTP server closed');

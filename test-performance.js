@@ -21,7 +21,7 @@ const server = app.listen(TEST_CONFIG.PORT, () => {
   runPerformanceTests();
 });
 
-async function makeRequest(path, method = 'GET', data = null) {
+async function makeRequest(path, method = 'GET', data = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: TEST_CONFIG.HOST,
@@ -30,7 +30,8 @@ async function makeRequest(path, method = 'GET', data = null) {
       method: method,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Performance-Test/1.0'
+        'User-Agent': 'Performance-Test/1.0',
+        ...extraHeaders
       }
     };
 
@@ -61,14 +62,14 @@ async function makeRequest(path, method = 'GET', data = null) {
   });
 }
 
-async function testEndpoint(name, path, method = 'GET', data = null) {
+async function testEndpoint(name, path, method = 'GET', data = null, extraHeaders = {}) {
   console.log(`\n📊 Testing ${name}...`);
   
   const start = performance.now();
   const promises = [];
   
   for (let i = 0; i < TEST_CONFIG.CONCURRENT_REQUESTS; i++) {
-    promises.push(makeRequest(path, method, data));
+    promises.push(makeRequest(path, method, data, extraHeaders));
   }
   
   try {
@@ -110,8 +111,10 @@ async function runPerformanceTests() {
   });
   testResults.push({ name: 'URL Shortening', ...shortenTest });
   
-  // Test 4: Admin dashboard
-  const adminTest = await testEndpoint('Admin Dashboard', '/admin');
+  // Test 4: Admin dashboard (with authentication)
+  const adminTest = await testEndpoint('Admin Dashboard', '/admin', 'GET', null, {
+    'Authorization': 'Bearer admin123'
+  });
   testResults.push({ name: 'Admin Dashboard', ...adminTest });
   
   // Generate summary

@@ -1163,4 +1163,23 @@ class AdminController {
   }
 }
 
-module.exports = new AdminController();
+// Create and export properly bound instance
+const adminController = new AdminController();
+
+// Bind all methods to maintain 'this' context
+const boundController = {
+  getDashboard: adminController.getDashboard.bind(adminController),
+  generateUrlsTable: adminController.generateUrlsTable.bind(adminController),
+  getAllAnalytics: adminController.getAllAnalytics.bind(adminController),
+  getAnalytics: adminController.getAnalytics.bind(adminController),
+  getSystemStatus: adminController.getSystemStatus.bind(adminController),
+  generateBulkClicks: adminController.generateBulkClicks.bind(adminController),
+  generateBulkClicksAll: adminController.generateBulkClicksAll.bind(adminController),
+  generateBlogViews: adminController.generateBlogViews.bind(adminController),
+  generateAdvancedBlogViewsWithAds: adminController.generateAdvancedBlogViewsWithAds.bind(adminController),
+  getBulkGenerationStats: adminController.getBulkGenerationStats.bind(adminController),
+  emergencyStopBulkOperations: adminController.emergencyStopBulkOperations.bind(adminController),
+  performSecurityCleanup: adminController.performSecurityCleanup.bind(adminController)
+};
+
+module.exports = boundController;

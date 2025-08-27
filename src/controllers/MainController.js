@@ -215,4 +215,15 @@ class MainController {
   }
 }
 
-module.exports = new MainController();
+// Create and export properly bound instance
+const mainController = new MainController();
+
+// Bind all methods to maintain 'this' context
+const boundController = {
+  getHomepage: mainController.getHomepage.bind(mainController),
+  shortenUrl: mainController.shortenUrl.bind(mainController),
+  redirectToOriginal: mainController.redirectToOriginal.bind(mainController),
+  healthCheck: mainController.healthCheck.bind(mainController)
+};
+
+module.exports = boundController;

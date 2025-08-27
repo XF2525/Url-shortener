@@ -187,12 +187,23 @@ function cleanupAuthAttempts() {
   console.log(`[AUTH] Cleanup completed: ${authAttempts.size} IPs being tracked`);
 }
 
-// Run cleanup every hour
-setInterval(cleanupAuthAttempts, 3600000);
+// Run cleanup every hour and store the interval reference for cleanup
+const authCleanupInterval = setInterval(cleanupAuthAttempts, 3600000);
+
+/**
+ * Stop the authentication cleanup interval (for graceful shutdown)
+ */
+function stopAuthCleanup() {
+  if (authCleanupInterval) {
+    clearInterval(authCleanupInterval);
+    console.log('[AUTH] Stopped authentication cleanup interval');
+  }
+}
 
 module.exports = {
   requireAuth,
   requireAdvancedAuth,
   requireUltraSecureAuth,
-  cleanupAuthAttempts
+  cleanupAuthAttempts,
+  stopAuthCleanup
 };
