@@ -51,6 +51,9 @@ app.post('/admin/api/automation/generate-clicks', requireUltraSecureAuth, AdminC
 app.post('/admin/api/automation/generate-bulk-clicks', requireUltraSecureAuth, AdminController.generateBulkClicksAll);
 app.post('/admin/api/blog/automation/generate-views', requireUltraSecureAuth, AdminController.generateBlogViews);
 
+// EXPERIMENTAL: Advanced Blog Views with Ads Interactions (requires ultra-secure authentication)
+app.post('/admin/api/blog/automation/generate-advanced-views-with-ads', requireUltraSecureAuth, AdminController.generateAdvancedBlogViewsWithAds);
+
 // Bulk generation management routes (requires advanced authentication)
 app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getBulkGenerationStats);
 app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
