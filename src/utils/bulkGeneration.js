@@ -561,18 +561,34 @@ class BulkGenerationUtils {
     const timestamp = new Date();
     const interactionId = crypto.randomUUID();
 
-    // Determine if ad will be viewed based on view rate
-    const isViewed = Math.random() < adConfig.viewRate;
+    // Extract IP and geographic data for enhanced targeting
+    const clientIP = blogViewData.ip;
+    const geoData = blogViewData.geography || {};
+    const deviceType = this.detectDeviceType(blogViewData.userAgent);
+    const browserType = this.detectBrowserType(blogViewData.userAgent);
+
+    // Determine if ad will be viewed based on view rate with device-specific adjustments
+    let adjustedViewRate = adConfig.viewRate;
+    if (deviceType === 'mobile') {
+      adjustedViewRate *= 0.95; // Slightly lower view rate on mobile
+    } else if (deviceType === 'tablet') {
+      adjustedViewRate *= 1.02; // Slightly higher on tablet
+    }
+
+    const isViewed = Math.random() < adjustedViewRate;
     const viewDuration = isViewed ? 
       Math.floor(Math.random() * (adConfig.engagementTime.max - adConfig.engagementTime.min)) + adConfig.engagementTime.min :
       0;
 
-    // Determine interaction type based on probabilities
-    const interactionType = this.determineInteractionType(adConfig, demogData);
+    // Determine interaction type based on probabilities with device/geo adjustments
+    const interactionType = this.determineInteractionType(adConfig, demogData, deviceType, geoData.region);
     
     // Generate placement and creative details
     const placement = adConfig.placements[Math.floor(Math.random() * adConfig.placements.length)];
     const creative = this.generateAdCreative(adType, adConfig);
+
+    // Enhanced fraud detection based on IP and user agent patterns
+    const fraudAssessment = this.assessAdFraudRisk(clientIP, blogViewData.userAgent, interactionType, geoData);
 
     const interaction = {
       interactionId,
@@ -591,12 +607,15 @@ class BulkGenerationUtils {
         converted: interactionType === 'conversion'
       },
 
-      // Technical details
+      // Technical details with IP-based insights
       technical: {
         loadTime: Math.floor(Math.random() * 2000) + 200, // 200ms - 2.2s
         renderTime: Math.floor(Math.random() * 500) + 50, // 50-550ms
         visible: isViewed,
-        inViewport: isViewed && Math.random() < 0.9 // 90% in viewport if viewed
+        inViewport: isViewed && Math.random() < 0.9, // 90% in viewport if viewed
+        clientIP: clientIP,
+        networkLatency: this.estimateNetworkLatency(geoData.region),
+        connectionType: this.estimateConnectionType(deviceType)
       },
 
       // Engagement metrics
@@ -607,17 +626,19 @@ class BulkGenerationUtils {
         qualityScore: this.calculateAdQualityScore(adType, interactionType, viewDuration)
       },
 
-      // Revenue simulation (CPM/CPC/CPA model)
-      revenue: this.calculateAdRevenue(adType, interactionType, demogData),
+      // Revenue simulation with geographic adjustments
+      revenue: this.calculateAdRevenue(adType, interactionType, demogData, geoData.region),
 
-      // Fraud detection markers
+      // Enhanced fraud detection with IP/UA integration
       fraud: {
-        suspicious: false,
-        riskScore: Math.random() * 30, // Low risk baseline
-        patterns: this.generateFraudPatterns()
+        suspicious: fraudAssessment.suspicious,
+        riskScore: fraudAssessment.riskScore,
+        patterns: fraudAssessment.patterns,
+        ipReputation: fraudAssessment.ipReputation,
+        geoConsistency: fraudAssessment.geoConsistency
       },
 
-      // Enhanced analytics
+      // Enhanced analytics with full IP/UA integration
       analytics: {
         sessionId: blogViewData.sessionId,
         pageContext: {
@@ -627,8 +648,20 @@ class BulkGenerationUtils {
         },
         userContext: {
           demographic: demogData,
-          deviceType: this.detectDeviceType(blogViewData.userAgent),
-          browserType: this.detectBrowserType(blogViewData.userAgent)
+          deviceType: deviceType,
+          browserType: browserType,
+          userAgent: blogViewData.userAgent
+        },
+        geographicContext: {
+          ip: clientIP,
+          region: geoData.region || 'Unknown',
+          timezone: geoData.timezone || 'UTC',
+          language: geoData.language || 'en-US'
+        },
+        networkContext: {
+          estimatedLatency: this.estimateNetworkLatency(geoData.region),
+          connectionType: this.estimateConnectionType(deviceType),
+          providerType: this.detectProviderType(clientIP)
         }
       }
     };
@@ -639,9 +672,23 @@ class BulkGenerationUtils {
   /**
    * Determine interaction type based on ad config and demographics
    */
-  determineInteractionType(adConfig, demogData) {
+  determineInteractionType(adConfig, demogData, deviceType = 'desktop', region = 'Unknown') {
     const rand = Math.random();
-    const adjustedClickRate = adConfig.clickRate * (demogData.clickRate / 1.0); // Adjust by demographic
+    let adjustedClickRate = adConfig.clickRate * (demogData.clickRate / 1.0); // Adjust by demographic
+    
+    // Device-specific adjustments
+    if (deviceType === 'mobile') {
+      adjustedClickRate *= 1.15; // Mobile users click more
+    } else if (deviceType === 'tablet') {
+      adjustedClickRate *= 1.05; // Tablet users slightly more likely to click
+    }
+    
+    // Regional adjustments (basic implementation)
+    if (region === 'Asia') {
+      adjustedClickRate *= 1.1; // Higher engagement in Asia
+    } else if (region === 'Europe') {
+      adjustedClickRate *= 0.95; // Slightly lower in Europe due to privacy awareness
+    }
 
     if (rand < adjustedClickRate * 0.1) return 'conversion'; // 10% of clicks convert
     if (rand < adjustedClickRate) return 'click';
@@ -720,7 +767,7 @@ class BulkGenerationUtils {
   /**
    * Calculate ad revenue based on interaction type and demographics
    */
-  calculateAdRevenue(adType, interactionType, demogData) {
+  calculateAdRevenue(adType, interactionType, demogData, region = 'Unknown') {
     const baseRates = {
       impression: 0.001, // $0.001 CPM
       view: 0.005,       // $0.005 CPV
@@ -730,10 +777,21 @@ class BulkGenerationUtils {
       conversion: 2.50   // $2.50 CPA
     };
 
+    // Geographic revenue multipliers based on regional ad market values
+    const regionMultipliers = {
+      'North America': 1.2,
+      'Europe': 1.1,
+      'Asia': 0.9,
+      'Oceania': 1.0,
+      'South America': 0.8,
+      'Unknown': 1.0
+    };
+
     const rate = baseRates[interactionType] || 0;
     const demographicMultiplier = demogData.clickRate / 1.0; // Adjust by demographic value
+    const regionalMultiplier = regionMultipliers[region] || 1.0;
     
-    return +(rate * demographicMultiplier * (0.8 + Math.random() * 0.4)).toFixed(4); // ±20% variance
+    return +(rate * demographicMultiplier * regionalMultiplier * (0.8 + Math.random() * 0.4)).toFixed(4); // ±20% variance
   }
 
   /**
@@ -880,6 +938,140 @@ class BulkGenerationUtils {
       botLikePattern: Math.random() < 0.02, // 2% chance
       geoAnomaly: Math.random() < 0.01 // 1% chance
     };
+  }
+
+  /**
+   * Enhanced fraud assessment using IP and user agent data
+   */
+  assessAdFraudRisk(clientIP, userAgent, interactionType, geoData) {
+    let riskScore = Math.random() * 30; // Base low risk
+    let suspicious = false;
+    const patterns = this.generateFraudPatterns();
+    
+    // IP-based risk assessment
+    const providerType = this.detectProviderType(clientIP);
+    if (providerType === 'datacenter') {
+      riskScore += 20; // Datacenter IPs are higher risk
+    } else if (providerType === 'vpn') {
+      riskScore += 15; // VPN IPs moderately higher risk
+    }
+    
+    // User agent risk assessment
+    const deviceType = this.detectDeviceType(userAgent);
+    const browserType = this.detectBrowserType(userAgent);
+    
+    // Interaction type risk assessment
+    if (interactionType === 'click' || interactionType === 'conversion') {
+      riskScore += 10; // Higher value interactions get more scrutiny
+    }
+    
+    // Geographic consistency check
+    let geoConsistency = 'consistent';
+    if (geoData.region && geoData.timezone) {
+      // Basic geo-timezone consistency check
+      const timezoneLikely = this.isTimezoneConsistentWithRegion(geoData.timezone, geoData.region);
+      if (!timezoneLikely) {
+        riskScore += 25;
+        geoConsistency = 'inconsistent';
+      }
+    }
+    
+    // Mark as suspicious if risk score exceeds threshold
+    if (riskScore > 50) {
+      suspicious = true;
+    }
+    
+    return {
+      suspicious,
+      riskScore: Math.min(100, riskScore),
+      patterns,
+      ipReputation: this.getIPReputation(clientIP),
+      geoConsistency
+    };
+  }
+
+  /**
+   * Estimate network latency based on geographic region
+   */
+  estimateNetworkLatency(region) {
+    const latencyRanges = {
+      'North America': { min: 20, max: 80 },
+      'Europe': { min: 25, max: 90 },
+      'Asia': { min: 30, max: 120 },
+      'Oceania': { min: 40, max: 150 },
+      'South America': { min: 50, max: 180 },
+      'Unknown': { min: 30, max: 100 }
+    };
+    
+    const range = latencyRanges[region] || latencyRanges['Unknown'];
+    return Math.floor(Math.random() * (range.max - range.min)) + range.min;
+  }
+
+  /**
+   * Estimate connection type based on device
+   */
+  estimateConnectionType(deviceType) {
+    const connectionTypes = {
+      'mobile': ['4G', '5G', 'WiFi'],
+      'tablet': ['WiFi', '4G', '5G'],
+      'desktop': ['WiFi', 'Ethernet', 'Fiber']
+    };
+    
+    const types = connectionTypes[deviceType] || connectionTypes['desktop'];
+    return types[Math.floor(Math.random() * types.length)];
+  }
+
+  /**
+   * Detect provider type from IP address patterns
+   */
+  detectProviderType(ip) {
+    // Simple heuristic based on IP ranges we use
+    if (ip.startsWith('8.8.') || ip.startsWith('1.1.1.')) {
+      return 'dns_provider';
+    } else if (ip.startsWith('52.') || ip.startsWith('54.') || ip.startsWith('3.')) {
+      return 'cloud_aws';
+    } else if (ip.startsWith('13.') || ip.startsWith('40.') || ip.startsWith('104.')) {
+      return 'cloud_microsoft';
+    } else if (ip.startsWith('74.125.')) {
+      return 'cloud_google';
+    } else {
+      return 'residential'; // Default for domestic ISP ranges
+    }
+  }
+
+  /**
+   * Get IP reputation assessment
+   */
+  getIPReputation(ip) {
+    // Simple reputation based on provider type
+    const providerType = this.detectProviderType(ip);
+    const reputationScores = {
+      'residential': 'good',
+      'cloud_google': 'good',
+      'cloud_microsoft': 'good', 
+      'cloud_aws': 'neutral',
+      'dns_provider': 'good',
+      'datacenter': 'caution',
+      'vpn': 'caution'
+    };
+    
+    return reputationScores[providerType] || 'neutral';
+  }
+
+  /**
+   * Check if timezone is consistent with geographic region
+   */
+  isTimezoneConsistentWithRegion(timezone, region) {
+    const regionTimezones = {
+      'North America': ['PST', 'EST', 'MST', 'CST', 'UTC'],
+      'Europe': ['GMT', 'CET', 'EET', 'UTC'],
+      'Asia': ['JST', 'CST', 'IST', 'KST', 'UTC'],
+      'Oceania': ['AEST', 'NZST', 'UTC'],
+      'South America': ['BRT', 'ART', 'PET', 'UTC']
+    };
+    
+    const validTimezones = regionTimezones[region] || ['UTC'];
+    return validTimezones.includes(timezone);
   }
 }
 
