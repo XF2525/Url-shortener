@@ -18,7 +18,7 @@ class MainController {
             <h1>🔗 URL Shortener</h1>
             <p>Enter a long URL below to create a short, shareable link.</p>
             
-            <form onsubmit="shortenUrl(event)">
+            <form onsubmit="return shortenUrl(event)">
               <div class="form-group">
                 <label for="url">Enter URL to shorten:</label>
                 <input 
@@ -45,7 +45,7 @@ class MainController {
           const resultDiv = document.getElementById('result');
           
           try {
-            resultDiv.innerHTML = '${templateUtils.components.loadingSpinner('Creating short URL...')}';
+            resultDiv.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Creating short URL...</p></div>';
             
             const response = await makeRequest('/shorten', {
               method: 'POST',
@@ -53,31 +53,30 @@ class MainController {
             });
             
             if (response.success || response.shortCode) {
-              const shortUrl = \`\${window.location.origin}/\${response.shortCode}\`;
-              resultDiv.innerHTML = \`
-                <div class="result success">
-                  <h3>✅ URL Shortened Successfully!</h3>
-                  <p><strong>Original URL:</strong> \${response.originalUrl}</p>
-                  <p><strong>Short URL:</strong> 
-                    <a href="\${shortUrl}" target="_blank">\${shortUrl}</a>
-                    <button class="btn btn-success" onclick="copyToClipboard('\${shortUrl}')" style="margin-left: 10px;">
-                      📋 Copy
-                    </button>
-                  </p>
-                  \${response.existingUrl ? '<p><em>Note: This URL was already shortened.</em></p>' : ''}
-                </div>
-              \`;
+              const shortUrl = window.location.origin + '/' + response.shortCode;
+              resultDiv.innerHTML = 
+                '<div class="result success">' +
+                  '<h3>✅ URL Shortened Successfully!</h3>' +
+                  '<p><strong>Original URL:</strong> ' + response.originalUrl + '</p>' +
+                  '<p><strong>Short URL:</strong> ' +
+                    '<a href="' + shortUrl + '" target="_blank">' + shortUrl + '</a>' +
+                    '<button class="btn btn-success" onclick="copyToClipboard(\\''+shortUrl+'\\')" style="margin-left: 10px;">' +
+                      '📋 Copy' +
+                    '</button>' +
+                  '</p>' +
+                  (response.existingUrl ? '<p><em>Note: This URL was already shortened.</em></p>' : '') +
+                '</div>';
             } else {
               throw new Error(response.error || 'Unknown error occurred');
             }
           } catch (error) {
-            resultDiv.innerHTML = \`
-              <div class="result error">
-                <h3>❌ Error</h3>
-                <p>\${error.message}</p>
-              </div>
-            \`;
+            resultDiv.innerHTML = 
+              '<div class="result error">' +
+                '<h3>❌ Error</h3>' +
+                '<p>' + error.message + '</p>' +
+              '</div>';
           }
+          return false;
         }
       `;
 
