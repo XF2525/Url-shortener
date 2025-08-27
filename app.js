@@ -8,7 +8,7 @@ const { CONFIG } = require('./src/config/constants');
 
 // Import middleware
 const { securityHeaders, rateLimit } = require('./src/middleware/security');
-const { requireAuth } = require('./src/middleware/auth');
+const { requireAuth, requireAdvancedAuth, requireUltraSecureAuth } = require('./src/middleware/auth');
 
 // Import controllers
 const MainController = require('./src/controllers/MainController');
@@ -45,6 +45,16 @@ app.get('/admin', requireAuth, AdminController.getDashboard);
 app.get('/admin/api/analytics', requireAuth, AdminController.getAllAnalytics);
 app.get('/admin/api/analytics/:shortCode', requireAuth, AdminController.getAnalytics);
 app.get('/admin/api/status', requireAuth, AdminController.getSystemStatus);
+
+// Enhanced Bulk Generation Routes (requires ultra-secure authentication)
+app.post('/admin/api/automation/generate-clicks', requireUltraSecureAuth, AdminController.generateBulkClicks);
+app.post('/admin/api/automation/generate-bulk-clicks', requireUltraSecureAuth, AdminController.generateBulkClicksAll);
+app.post('/admin/api/blog/automation/generate-views', requireUltraSecureAuth, AdminController.generateBlogViews);
+
+// Bulk generation management routes (requires advanced authentication)
+app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getBulkGenerationStats);
+app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
+app.post('/admin/api/automation/cleanup', requireAdvancedAuth, AdminController.performSecurityCleanup);
 
 // Short URL redirect (must be last to avoid conflicts)
 app.get('/:shortCode', MainController.redirectToOriginal);

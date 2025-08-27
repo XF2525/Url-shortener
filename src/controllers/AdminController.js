@@ -4,6 +4,7 @@
 
 const urlShortener = require('../models/UrlShortener');
 const templateUtils = require('../views/templates');
+const bulkGeneration = require('../utils/bulkGeneration');
 
 class AdminController {
   /**
@@ -216,6 +217,7 @@ class AdminController {
     try {
       const stats = urlShortener.getSystemStats();
       const memoryUsage = process.memoryUsage();
+      const securityStats = bulkGeneration.getSecurityStats();
       
       const status = {
         application: {
@@ -240,6 +242,7 @@ class AdminController {
             clicksToday: stats.recentClicks
           }
         },
+        security: securityStats,
         timestamp: new Date().toISOString()
       };
       
@@ -248,6 +251,416 @@ class AdminController {
       console.error('System status error:', error);
       res.status(500).json({
         error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Enhanced Bulk Click Generation with Advanced Security
+   */
+  async generateBulkClicks(req, res) {
+    try {
+      const { shortCode, clickCount, delay, userAgents } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'click', clickCount);
+      
+      // Input validation
+      if (!shortCode) {
+        return res.status(400).json({ error: 'Short code is required' });
+      }
+      
+      if (!clickCount || clickCount < 1 || clickCount > bulkGeneration.config.maxClicksPerRequest) {
+        return res.status(400).json({ 
+          error: `Click count must be between 1 and ${bulkGeneration.config.maxClicksPerRequest}` 
+        });
+      }
+
+      // Check if URL exists
+      const urlData = urlShortener.getUrl(shortCode);
+      if (!urlData) {
+        return res.status(404).json({ error: 'Short code not found' });
+      }
+
+      // Generate clicks with enhanced security
+      const results = [];
+      const baseDelay = delay || bulkGeneration.config.baseDelays.clickGeneration;
+      
+      console.log(`[BULK] Starting secure click generation: ${clickCount} clicks for ${shortCode} from IP ${securityContext.ip}`);
+      
+      for (let i = 0; i < clickCount; i++) {
+        try {
+          // Generate realistic analytics data
+          const analyticsData = bulkGeneration.generateSecureAnalyticsData('click');
+          
+          // Register the click with enhanced data
+          urlShortener.recordClick(shortCode, {
+            ip: analyticsData.ip,
+            userAgent: analyticsData.userAgent,
+            timestamp: new Date(analyticsData.timestamp),
+            sessionId: analyticsData.sessionId,
+            behavior: analyticsData.behavior,
+            geography: analyticsData.geography,
+            referrer: analyticsData.referrer,
+            generated: true,
+            generationContext: securityContext
+          });
+
+          results.push({
+            clickNumber: i + 1,
+            timestamp: analyticsData.timestamp,
+            ip: analyticsData.ip,
+            userAgent: analyticsData.userAgent.substring(0, 50) + '...',
+            sessionId: analyticsData.sessionId
+          });
+
+          // Apply secure delay with jitter
+          if (i < clickCount - 1) {
+            const actualDelay = bulkGeneration.getSecureRandomDelay(baseDelay);
+            await new Promise(resolve => setTimeout(resolve, actualDelay));
+          }
+          
+        } catch (error) {
+          console.error(`[BULK] Error generating click ${i + 1}:`, error);
+          results.push({
+            clickNumber: i + 1,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      console.log(`[BULK] Completed secure click generation: ${results.length} clicks for ${shortCode}`);
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${results.length} clicks for ${shortCode}`,
+        shortCode,
+        totalClicks: results.length,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        results: results.slice(0, 10), // Return first 10 for debugging
+        analytics: urlShortener.getAnalytics(shortCode)
+      });
+
+    } catch (error) {
+      console.error('[BULK] Bulk click generation error:', error);
+      
+      // Enhanced error responses for security
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Bulk click generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Enhanced Bulk Click Generation for All URLs
+   */
+  async generateBulkClicksAll(req, res) {
+    try {
+      const { clicksPerUrl, delay } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'bulk_click', clicksPerUrl);
+      
+      // Input validation
+      if (!clicksPerUrl || clicksPerUrl < 1 || clicksPerUrl > bulkGeneration.config.maxClicksPerRequest) {
+        return res.status(400).json({ 
+          error: `Clicks per URL must be between 1 and ${bulkGeneration.config.maxClicksPerRequest}` 
+        });
+      }
+
+      const allUrls = urlShortener.getAllUrls();
+      if (allUrls.length === 0) {
+        return res.status(400).json({ error: 'No URLs available for bulk generation' });
+      }
+
+      console.log(`[BULK] Starting bulk click generation for all URLs: ${clicksPerUrl} clicks each for ${allUrls.length} URLs from IP ${securityContext.ip}`);
+
+      const results = [];
+      const baseDelay = delay || bulkGeneration.config.baseDelays.clickGeneration;
+
+      for (const urlData of allUrls) {
+        try {
+          const urlResults = [];
+          
+          for (let i = 0; i < clicksPerUrl; i++) {
+            // Generate realistic analytics data
+            const analyticsData = bulkGeneration.generateSecureAnalyticsData('bulk_click');
+            
+            // Register the click
+            urlShortener.recordClick(urlData.shortCode, {
+              ip: analyticsData.ip,
+              userAgent: analyticsData.userAgent,
+              timestamp: new Date(analyticsData.timestamp),
+              sessionId: analyticsData.sessionId,
+              behavior: analyticsData.behavior,
+              geography: analyticsData.geography,
+              referrer: analyticsData.referrer,
+              generated: true,
+              generationContext: securityContext
+            });
+
+            urlResults.push({
+              clickNumber: i + 1,
+              timestamp: analyticsData.timestamp,
+              ip: analyticsData.ip
+            });
+
+            // Apply secure delay
+            if (i < clicksPerUrl - 1) {
+              const actualDelay = bulkGeneration.getSecureRandomDelay(baseDelay);
+              await new Promise(resolve => setTimeout(resolve, actualDelay));
+            }
+          }
+
+          results.push({
+            shortCode: urlData.shortCode,
+            originalUrl: urlData.originalUrl,
+            clicksGenerated: urlResults.length,
+            newTotal: urlData.clicks + urlResults.length
+          });
+
+        } catch (error) {
+          console.error(`[BULK] Error generating clicks for ${urlData.shortCode}:`, error);
+          results.push({
+            shortCode: urlData.shortCode,
+            error: error.message
+          });
+        }
+      }
+
+      console.log(`[BULK] Completed bulk click generation for all URLs: ${results.length} URLs processed`);
+
+      res.json({
+        success: true,
+        message: `Bulk click generation completed for ${results.length} URLs`,
+        totalUrls: allUrls.length,
+        clicksPerUrl,
+        totalClicksGenerated: results.reduce((sum, r) => sum + (r.clicksGenerated || 0), 0),
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        results
+      });
+
+    } catch (error) {
+      console.error('[BULK] Bulk click generation (all) error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Bulk click generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Enhanced Blog View Generation with Advanced Security
+   */
+  async generateBlogViews(req, res) {
+    try {
+      const { blogId, viewCount, delay, userAgents } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'blog', viewCount);
+      
+      // Input validation
+      if (!blogId) {
+        return res.status(400).json({ error: 'Blog ID is required' });
+      }
+      
+      if (!viewCount || viewCount < 1 || viewCount > bulkGeneration.config.maxBlogViewsPerRequest) {
+        return res.status(400).json({ 
+          error: `View count must be between 1 and ${bulkGeneration.config.maxBlogViewsPerRequest}` 
+        });
+      }
+
+      console.log(`[BLOG] Starting secure blog view generation: ${viewCount} views for ${blogId} from IP ${securityContext.ip}`);
+
+      // Generate blog views with enhanced security
+      const results = [];
+      const baseDelay = delay || bulkGeneration.config.baseDelays.blogViewGeneration;
+      
+      for (let i = 0; i < viewCount; i++) {
+        try {
+          // Generate realistic analytics data with blog-specific enhancements
+          const analyticsData = bulkGeneration.generateSecureAnalyticsData('blog_view');
+          
+          // Enhanced blog-specific behavior simulation
+          analyticsData.behavior = {
+            ...analyticsData.behavior,
+            readTime: Math.floor(Math.random() * 180000) + 30000, // 30s - 3min read time
+            scrollDepth: Math.floor(Math.random() * 60) + 40, // 40-100% scroll
+            engagementScore: Math.random() * 100,
+            returnVisitor: Math.random() < 0.3 // 30% return visitors
+          };
+
+          // Store blog view analytics (would integrate with actual blog system)
+          // For now, simulate storage
+          const blogView = {
+            blogId,
+            timestamp: analyticsData.timestamp,
+            ip: analyticsData.ip,
+            userAgent: analyticsData.userAgent,
+            sessionId: analyticsData.sessionId,
+            behavior: analyticsData.behavior,
+            geography: analyticsData.geography,
+            referrer: analyticsData.referrer,
+            generated: true,
+            generationContext: securityContext
+          };
+
+          results.push({
+            viewNumber: i + 1,
+            timestamp: analyticsData.timestamp,
+            ip: analyticsData.ip,
+            readTime: analyticsData.behavior.readTime,
+            scrollDepth: analyticsData.behavior.scrollDepth,
+            sessionId: analyticsData.sessionId
+          });
+
+          // Apply secure delay with jitter
+          if (i < viewCount - 1) {
+            const actualDelay = bulkGeneration.getSecureRandomDelay(baseDelay);
+            await new Promise(resolve => setTimeout(resolve, actualDelay));
+          }
+          
+        } catch (error) {
+          console.error(`[BLOG] Error generating view ${i + 1}:`, error);
+          results.push({
+            viewNumber: i + 1,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
+      console.log(`[BLOG] Completed secure blog view generation: ${results.length} views for ${blogId}`);
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${results.length} views for blog ${blogId}`,
+        blogId,
+        totalViews: results.length,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        results: results.slice(0, 10), // Return first 10 for debugging
+        analytics: {
+          averageReadTime: results.reduce((sum, r) => sum + (r.readTime || 0), 0) / results.length,
+          averageScrollDepth: results.reduce((sum, r) => sum + (r.scrollDepth || 0), 0) / results.length
+        }
+      });
+
+    } catch (error) {
+      console.error('[BLOG] Blog view generation error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Blog view generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get bulk generation statistics
+   */
+  getBulkGenerationStats(req, res) {
+    try {
+      const securityStats = bulkGeneration.getSecurityStats();
+      const systemStats = urlShortener.getSystemStats();
+      
+      res.json({
+        security: securityStats,
+        system: systemStats,
+        configuration: {
+          maxClicksPerRequest: bulkGeneration.config.maxClicksPerRequest,
+          maxBlogViewsPerRequest: bulkGeneration.config.maxBlogViewsPerRequest,
+          maxBulkOperationsPerHour: bulkGeneration.config.maxBulkOperationsPerHour,
+          maxBulkOperationsPerDay: bulkGeneration.config.maxBulkOperationsPerDay
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Bulk generation stats error:', error);
+      res.status(500).json({
+        error: 'Failed to get bulk generation statistics'
+      });
+    }
+  }
+
+  /**
+   * Emergency stop for all bulk operations
+   */
+  emergencyStopBulkOperations(req, res) {
+    try {
+      const { reason } = req.body;
+      const securityEvent = bulkGeneration.activateEmergencyStop(reason || 'Manual emergency stop');
+      
+      res.json({
+        success: true,
+        message: 'Emergency stop activated - all bulk operations suspended',
+        securityEvent,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Emergency stop error:', error);
+      res.status(500).json({
+        error: 'Failed to activate emergency stop'
+      });
+    }
+  }
+
+  /**
+   * Perform security cleanup
+   */
+  performSecurityCleanup(req, res) {
+    try {
+      bulkGeneration.performSecurityCleanup();
+      const stats = bulkGeneration.getSecurityStats();
+      
+      res.json({
+        success: true,
+        message: 'Security cleanup completed',
+        currentStats: stats,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Security cleanup error:', error);
+      res.status(500).json({
+        error: 'Failed to perform security cleanup'
       });
     }
   }
