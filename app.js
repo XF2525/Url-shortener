@@ -54,6 +54,12 @@ app.post('/admin/api/blog/automation/generate-views', requireUltraSecureAuth, Ad
 // EXPERIMENTAL: Advanced Blog Views with Ads Interactions (requires ultra-secure authentication)
 app.post('/admin/api/blog/automation/generate-advanced-views-with-ads', requireUltraSecureAuth, AdminController.generateAdvancedBlogViewsWithAds);
 
+// Background continuous generation endpoints (requires ultra-secure authentication)
+app.post('/admin/api/automation/start-background-clicks', requireUltraSecureAuth, AdminController.startBackgroundClicks);
+app.post('/admin/api/automation/start-background-views', requireUltraSecureAuth, AdminController.startBackgroundViews);
+app.post('/admin/api/automation/stop-background-processes', requireUltraSecureAuth, AdminController.stopBackgroundProcesses);
+app.get('/admin/api/automation/background-status', requireAdvancedAuth, AdminController.getBackgroundStatus);
+
 // Bulk generation management routes (requires advanced authentication)
 app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getBulkGenerationStats);
 app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
@@ -86,6 +92,14 @@ app.use((error, req, res, next) => {
 // Graceful shutdown handling
 function gracefulShutdown() {
   console.log('\n[SHUTDOWN] Gracefully shutting down...');
+  
+  // Stop background workers
+  try {
+    const { stopBackgroundWorkers } = require('./src/utils/backgroundWorkers');
+    stopBackgroundWorkers();
+  } catch (error) {
+    console.log('[SHUTDOWN] Note: Background workers cleanup completed or not running');
+  }
   
   // Stop auth cleanup interval
   try {

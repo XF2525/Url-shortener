@@ -5,6 +5,7 @@
 const urlShortener = require('../models/UrlShortener');
 const templateUtils = require('../views/templates');
 const bulkGeneration = require('../utils/bulkGeneration');
+const { backgroundWorkerManager } = require('../utils/backgroundWorkers');
 
 class AdminController {
   /**
@@ -1161,6 +1162,150 @@ class AdminController {
       });
     }
   }
+
+  /**
+   * Start continuous background click generation
+   */
+  async startBackgroundClicks(req, res) {
+    try {
+      const { config = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'background_clicks', 0);
+      
+      console.log(`[BACKGROUND] Starting continuous click generation from IP ${securityContext.ip}`);
+      
+      const result = await backgroundWorkerManager.startClickGeneration(config);
+      
+      res.json({
+        ...result,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        message: 'Continuous background click generation started successfully',
+        instructions: 'The worker will now generate clicks continuously in the background until stopped'
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to start background clicks:', error);
+      
+      if (error.message.includes('already running')) {
+        return res.status(409).json({
+          error: 'Background click generation is already running',
+          suggestion: 'Use /admin/api/automation/background-status to check current status'
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Failed to start background click generation',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Start continuous background view generation
+   */
+  async startBackgroundViews(req, res) {
+    try {
+      const { config = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'background_views', 0);
+      
+      console.log(`[BACKGROUND] Starting continuous view generation from IP ${securityContext.ip}`);
+      
+      const result = await backgroundWorkerManager.startViewGeneration(config);
+      
+      res.json({
+        ...result,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        message: 'Continuous background view generation started successfully',
+        instructions: 'The worker will now generate blog views with ads interactions continuously in the background until stopped'
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to start background views:', error);
+      
+      if (error.message.includes('already running')) {
+        return res.status(409).json({
+          error: 'Background view generation is already running',
+          suggestion: 'Use /admin/api/automation/background-status to check current status'
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Failed to start background view generation',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Stop background processes
+   */
+  async stopBackgroundProcesses(req, res) {
+    try {
+      const { workerId } = req.body;
+      
+      console.log(`[BACKGROUND] Stopping background processes. WorkerId: ${workerId || 'all'}`);
+      
+      let results;
+      if (workerId) {
+        // Stop specific worker
+        results = { [workerId]: backgroundWorkerManager.stopWorker(workerId) };
+      } else {
+        // Stop all workers
+        results = backgroundWorkerManager.stopAllWorkers();
+      }
+      
+      res.json({
+        success: true,
+        message: workerId ? `Worker ${workerId} stopped` : 'All background workers stopped',
+        results,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to stop background processes:', error);
+      res.status(500).json({
+        error: 'Failed to stop background processes',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get background processes status
+   */
+  getBackgroundStatus(req, res) {
+    try {
+      const status = backgroundWorkerManager.getWorkersStatus();
+      
+      res.json({
+        success: true,
+        status,
+        summary: {
+          totalActiveWorkers: Object.values(status.workers).filter(w => w.active).length,
+          totalWorkers: Object.keys(status.workers).length,
+          systemHealthy: status.systemHealth.healthy
+        }
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to get background status:', error);
+      res.status(500).json({
+        error: 'Failed to get background processes status',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 // Create and export properly bound instance
@@ -1179,7 +1324,13 @@ const boundController = {
   generateAdvancedBlogViewsWithAds: adminController.generateAdvancedBlogViewsWithAds.bind(adminController),
   getBulkGenerationStats: adminController.getBulkGenerationStats.bind(adminController),
   emergencyStopBulkOperations: adminController.emergencyStopBulkOperations.bind(adminController),
-  performSecurityCleanup: adminController.performSecurityCleanup.bind(adminController)
+  performSecurityCleanup: adminController.performSecurityCleanup.bind(adminController),
+  
+  // Background worker methods
+  startBackgroundClicks: adminController.startBackgroundClicks.bind(adminController),
+  startBackgroundViews: adminController.startBackgroundViews.bind(adminController),
+  stopBackgroundProcesses: adminController.stopBackgroundProcesses.bind(adminController),
+  getBackgroundStatus: adminController.getBackgroundStatus.bind(adminController)
 };
 
 module.exports = boundController;
