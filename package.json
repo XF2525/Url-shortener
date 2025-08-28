@@ -5,6 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
+    "setup": "./setup.sh",
     "dev": "NODE_ENV=development node app.js",
     "prod": "NODE_ENV=production node app.js",
     "build": "npm install --production",

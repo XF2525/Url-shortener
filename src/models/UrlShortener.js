@@ -10,6 +10,15 @@ class UrlShortenerModel {
     // In-memory storage (URLs are lost when server restarts)
     this.urlDatabase = new Map();
     this.analytics = new Map();
+    
+    // Reverse mapping for efficient URL lookup (performance optimization)
+    this.urlToShortCode = new Map();
+    
+    // Memory management
+    this.maxUrlsInMemory = CONFIG.MAX_URLS_IN_MEMORY || 10000;
+    this.maxAnalyticsHistoryPerUrl = CONFIG.MAX_ANALYTICS_HISTORY || 1000;
+    this.lastCleanup = Date.now();
+    this.cleanupInterval = CONFIG.CLEANUP_INTERVAL || 3600000; // 1 hour
   }
 
   /**
@@ -42,18 +51,17 @@ class UrlShortenerModel {
         };
       }
 
-      // Check if URL already exists
-      for (const [shortCode, data] of this.urlDatabase.entries()) {
-        if (data.originalUrl === originalUrl) {
-          return {
-            success: true,
-            data: {
-              shortCode,
-              originalUrl,
-              existingUrl: true
-            }
-          };
-        }
+      // Check if URL already exists (efficient O(1) lookup)
+      if (this.urlToShortCode.has(originalUrl)) {
+        const existingShortCode = this.urlToShortCode.get(originalUrl);
+        return {
+          success: true,
+          data: {
+            shortCode: existingShortCode,
+            originalUrl,
+            existingUrl: true
+          }
+        };
       }
 
       // Generate unique short code
@@ -81,6 +89,10 @@ class UrlShortenerModel {
       };
 
       this.urlDatabase.set(shortCode, urlData);
+      
+      // Maintain reverse mapping for efficiency
+      this.urlToShortCode.set(originalUrl, shortCode);
+      
       this.analytics.set(shortCode, {
         history: [],
         dailyStats: new Map(),
@@ -146,6 +158,11 @@ class UrlShortenerModel {
    */
   recordClick(shortCode, req = {}) {
     try {
+      // Periodic memory cleanup (every 100 clicks)
+      if (Math.random() < 0.01) { // 1% chance per click
+        this.performMemoryCleanup();
+      }
+      
       const urlData = this.urlDatabase.get(shortCode);
       const analytics = this.analytics.get(shortCode);
       
@@ -450,6 +467,96 @@ class UrlShortenerModel {
            req.socket?.remoteAddress ||
            req.headers?.['x-forwarded-for']?.split(',')[0] ||
            'unknown';
+  }
+
+  /**
+   * Perform memory cleanup to prevent memory leaks
+   */
+  performMemoryCleanup() {
+    const now = Date.now();
+    
+    // Skip if cleanup was done recently
+    if (now - this.lastCleanup < this.cleanupInterval) {
+      return;
+    }
+
+    console.log('[MEMORY] Starting memory cleanup...');
+    const initialUrls = this.urlDatabase.size;
+    const initialAnalytics = this.analytics.size;
+
+    try {
+      // Clean up old analytics history to prevent memory growth
+      for (const [shortCode, analytics] of this.analytics.entries()) {
+        if (analytics.history && analytics.history.length > this.maxAnalyticsHistoryPerUrl) {
+          // Keep only recent entries
+          analytics.history = analytics.history.slice(-this.maxAnalyticsHistoryPerUrl);
+        }
+
+        // Clean up old session data
+        if (analytics.bulkGenerated?.generationSessions) {
+          const sessions = analytics.bulkGenerated.generationSessions;
+          const cutoffTime = now - (24 * 60 * 60 * 1000); // 24 hours
+          
+          for (const [sessionId, sessionData] of sessions.entries()) {
+            if (new Date(sessionData.lastActivity).getTime() < cutoffTime) {
+              sessions.delete(sessionId);
+            }
+          }
+        }
+
+        // Clean up old daily stats (keep only last 30 days)
+        if (analytics.dailyStats) {
+          const cutoffDate = new Date(now - (30 * 24 * 60 * 60 * 1000));
+          for (const [dateStr] of analytics.dailyStats.entries()) {
+            if (new Date(dateStr) < cutoffDate) {
+              analytics.dailyStats.delete(dateStr);
+            }
+          }
+        }
+      }
+
+      // If we have too many URLs, remove oldest ones
+      if (this.urlDatabase.size > this.maxUrlsInMemory) {
+        const urls = Array.from(this.urlDatabase.entries())
+          .sort((a, b) => new Date(a[1].createdAt) - new Date(b[1].createdAt));
+        
+        const toRemove = urls.slice(0, this.urlDatabase.size - this.maxUrlsInMemory);
+        
+        for (const [shortCode, urlData] of toRemove) {
+          this.urlDatabase.delete(shortCode);
+          this.urlToShortCode.delete(urlData.originalUrl);
+          this.analytics.delete(shortCode);
+        }
+        
+        console.log(`[MEMORY] Removed ${toRemove.length} old URLs to stay within memory limits`);
+      }
+
+      this.lastCleanup = now;
+      
+      const finalUrls = this.urlDatabase.size;
+      const finalAnalytics = this.analytics.size;
+      
+      console.log(`[MEMORY] Cleanup completed. URLs: ${initialUrls} → ${finalUrls}, Analytics: ${initialAnalytics} → ${finalAnalytics}`);
+      
+    } catch (error) {
+      console.error('[MEMORY] Error during memory cleanup:', error);
+    }
+  }
+
+  /**
+   * Get memory usage statistics
+   */
+  getMemoryStats() {
+    return {
+      totalUrls: this.urlDatabase.size,
+      totalAnalytics: this.analytics.size,
+      memoryLimits: {
+        maxUrls: this.maxUrlsInMemory,
+        maxAnalyticsHistory: this.maxAnalyticsHistoryPerUrl
+      },
+      lastCleanup: new Date(this.lastCleanup).toISOString(),
+      nextCleanup: new Date(this.lastCleanup + this.cleanupInterval).toISOString()
+    };
   }
 }
 

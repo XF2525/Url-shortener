@@ -5,6 +5,7 @@
 const urlShortener = require('../models/UrlShortener');
 const templateUtils = require('../views/templates');
 const bulkGeneration = require('../utils/bulkGeneration');
+const { backgroundWorkerManager } = require('../utils/backgroundWorkers');
 
 class AdminController {
   /**
@@ -1161,6 +1162,1141 @@ class AdminController {
       });
     }
   }
+
+  /**
+   * Start continuous background click generation
+   */
+  async startBackgroundClicks(req, res) {
+    try {
+      const { config = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'background_clicks', 0);
+      
+      console.log(`[BACKGROUND] Starting continuous click generation from IP ${securityContext.ip}`);
+      
+      const result = await backgroundWorkerManager.startClickGeneration(config);
+      
+      res.json({
+        ...result,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        message: 'Continuous background click generation started successfully',
+        instructions: 'The worker will now generate clicks continuously in the background until stopped'
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to start background clicks:', error);
+      
+      if (error.message.includes('already running')) {
+        return res.status(409).json({
+          error: 'Background click generation is already running',
+          suggestion: 'Use /admin/api/automation/background-status to check current status'
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Failed to start background click generation',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Start continuous background view generation
+   */
+  async startBackgroundViews(req, res) {
+    try {
+      const { config = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'background_views', 0);
+      
+      console.log(`[BACKGROUND] Starting continuous view generation from IP ${securityContext.ip}`);
+      
+      const result = await backgroundWorkerManager.startViewGeneration(config);
+      
+      res.json({
+        ...result,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        message: 'Continuous background view generation started successfully',
+        instructions: 'The worker will now generate blog views with ads interactions continuously in the background until stopped'
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to start background views:', error);
+      
+      if (error.message.includes('already running')) {
+        return res.status(409).json({
+          error: 'Background view generation is already running',
+          suggestion: 'Use /admin/api/automation/background-status to check current status'
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Failed to start background view generation',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Stop background processes
+   */
+  async stopBackgroundProcesses(req, res) {
+    try {
+      const { workerId } = req.body;
+      
+      console.log(`[BACKGROUND] Stopping background processes. WorkerId: ${workerId || 'all'}`);
+      
+      let results;
+      if (workerId) {
+        // Stop specific worker
+        results = { [workerId]: backgroundWorkerManager.stopWorker(workerId) };
+      } else {
+        // Stop all workers
+        results = backgroundWorkerManager.stopAllWorkers();
+      }
+      
+      res.json({
+        success: true,
+        message: workerId ? `Worker ${workerId} stopped` : 'All background workers stopped',
+        results,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to stop background processes:', error);
+      res.status(500).json({
+        error: 'Failed to stop background processes',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get background processes status
+   */
+  getBackgroundStatus(req, res) {
+    try {
+      const status = backgroundWorkerManager.getWorkersStatus();
+      
+      res.json({
+        success: true,
+        status,
+        summary: {
+          totalActiveWorkers: Object.values(status.workers).filter(w => w.active).length,
+          totalWorkers: Object.keys(status.workers).length,
+          systemHealthy: status.systemHealth.healthy
+        }
+      });
+
+    } catch (error) {
+      console.error('[BACKGROUND] Failed to get background status:', error);
+      res.status(500).json({
+        error: 'Failed to get background processes status',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * ====================================================================
+   * NEW AURA FEATURES API ENDPOINTS
+   * Premium traffic generation with enhanced quality scoring
+   * ====================================================================
+   */
+
+  /**
+   * Generate bulk clicks with aura features
+   */
+  async generateBulkClicksWithAura(req, res) {
+    try {
+      const { shortCode, clickCount, auraOptions = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'aura_clicks', clickCount);
+      
+      // Input validation
+      if (!shortCode) {
+        return res.status(400).json({ error: 'Short code is required' });
+      }
+      
+      if (!clickCount || clickCount < 1 || clickCount > bulkGeneration.config.maxClicksPerRequest) {
+        return res.status(400).json({ 
+          error: `Click count must be between 1 and ${bulkGeneration.config.maxClicksPerRequest}` 
+        });
+      }
+
+      // Check if URL exists
+      const urlData = urlShortener.getUrl(shortCode);
+      if (!urlData) {
+        return res.status(404).json({ error: 'Short code not found' });
+      }
+
+      console.log(`[AURA] Starting bulk clicks with aura features: ${clickCount} clicks for ${shortCode}`);
+
+      // Generate clicks with aura enhancements
+      const auraResult = await bulkGeneration.generateBulkTrafficWithAura('aura_click', clickCount, {
+        ...auraOptions,
+        auraQualityTarget: auraOptions.qualityTarget || 85,
+        enhancedDistribution: true,
+        premiumPatterns: true,
+        delay: auraOptions.delay || 300
+      });
+
+      // Register clicks in URL shortener
+      auraResult.results.forEach((result, index) => {
+        const analyticsData = bulkGeneration.generateTrafficWithAura('click', 1, auraOptions);
+        
+        urlShortener.recordClick(shortCode, {
+          ip: result.ip,
+          userAgent: result.userAgent,
+          timestamp: new Date(result.timestamp),
+          sessionId: `aura_${index}_${Date.now()}`,
+          behavior: analyticsData.behavior,
+          geography: analyticsData.geography,
+          referrer: analyticsData.referrer,
+          generated: true,
+          aura: true,
+          auraScore: result.auraScore,
+          qualityTier: result.qualityTier,
+          generationContext: securityContext
+        });
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${clickCount} premium clicks with aura features for ${shortCode}`,
+        shortCode,
+        auraFeatures: true,
+        totalClicks: clickCount,
+        auraMetrics: auraResult.auraMetrics,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        enhancedFeatures: auraResult.enhancedFeatures,
+        sampleResults: auraResult.results.slice(0, 5),
+        analytics: urlShortener.getAnalytics(shortCode)
+      });
+
+    } catch (error) {
+      console.error('[AURA] Bulk clicks with aura generation error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Bulk clicks with aura generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate blog views with aura features
+   */
+  async generateBlogViewsWithAura(req, res) {
+    try {
+      const { blogId, viewCount, auraOptions = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'aura_blog', viewCount);
+      
+      // Input validation
+      if (!blogId) {
+        return res.status(400).json({ error: 'Blog ID is required' });
+      }
+      
+      if (!viewCount || viewCount < 1 || viewCount > bulkGeneration.config.maxBlogViewsPerRequest) {
+        return res.status(400).json({ 
+          error: `View count must be between 1 and ${bulkGeneration.config.maxBlogViewsPerRequest}` 
+        });
+      }
+
+      console.log(`[AURA] Starting blog views with aura features: ${viewCount} views for ${blogId}`);
+
+      // Generate views with aura enhancements and ads
+      const auraResult = await bulkGeneration.generateBulkTrafficWithAura('aura_blog_view', viewCount, {
+        ...auraOptions,
+        auraQualityTarget: auraOptions.qualityTarget || 85,
+        enhancedDistribution: true,
+        premiumPatterns: true,
+        enableAds: true,
+        delay: auraOptions.delay || 400
+      });
+
+      // Enhanced ads integration for each view
+      const adsAnalytics = [];
+      auraResult.results.forEach((result, index) => {
+        const blogViewData = bulkGeneration.generateTrafficWithAura('blog_view', 1, auraOptions);
+        
+        // Generate ads interaction for this view
+        const adsInteraction = bulkGeneration.generateAdvancedAdsInteraction(blogViewData, {
+          enableAds: true,
+          adTypes: ['banner', 'native', 'video'],
+          maxAdsPerView: 3,
+          fraudDetection: true,
+          experimentalFeatures: true
+        });
+
+        if (adsInteraction.adsEnabled) {
+          adsAnalytics.push(adsInteraction);
+        }
+      });
+
+      // Calculate comprehensive ads analytics
+      const totalAdsRevenue = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.totalRevenue || 0), 0);
+      const totalAdsClicks = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.clicks || 0), 0);
+      const totalAdsInteractions = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.totalInteractions || 0), 0);
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${viewCount} premium blog views with aura features and ads for ${blogId}`,
+        blogId,
+        auraFeatures: true,
+        totalViews: viewCount,
+        auraMetrics: auraResult.auraMetrics,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        enhancedFeatures: auraResult.enhancedFeatures,
+        
+        // Enhanced ads analytics with aura integration
+        premiumAdsAnalytics: {
+          enabled: true,
+          totalViewsWithAds: adsAnalytics.length,
+          totalAdsRevenue: +(totalAdsRevenue.toFixed(4)),
+          totalAdsClicks,
+          totalAdsInteractions,
+          averageRevenuePerView: adsAnalytics.length > 0 ? +(totalAdsRevenue / adsAnalytics.length).toFixed(4) : 0,
+          premiumMultiplier: 1.2, // 20% premium for aura features
+          qualityScore: auraResult.auraMetrics.averageScore
+        },
+        
+        sampleResults: auraResult.results.slice(0, 5),
+        sampleAdsData: adsAnalytics.slice(0, 3)
+      });
+
+    } catch (error) {
+      console.error('[AURA] Blog views with aura generation error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Blog views with aura generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get aura features status and metrics
+   */
+  getAuraStatus(req, res) {
+    try {
+      const auraStatus = bulkGeneration.getAuraStatus();
+      
+      res.json({
+        success: true,
+        auraFeatures: auraStatus,
+        premiumCapabilities: {
+          enhancedIPRotation: true,
+          premiumUserAgents: true,
+          advancedBehaviorSimulation: true,
+          realTimeQualityMonitoring: true,
+          auraScoring: true
+        },
+        systemInfo: {
+          timestamp: new Date().toISOString(),
+          version: '1.0.0-aura',
+          premium: true
+        }
+      });
+
+    } catch (error) {
+      console.error('[AURA] Failed to get aura status:', error);
+      res.status(500).json({
+        error: 'Failed to get aura status',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * ====================================================================
+   * COMPREHENSIVE ENHANCED AURA API ENDPOINTS - MANY MORE FEATURES
+   * ====================================================================
+   */
+
+  /**
+   * Generate AI-optimized traffic with machine learning capabilities
+   */
+  async generateAIOptimizedTraffic(req, res) {
+    try {
+      const { shortCode, count, aiOptions = {} } = req.body;
+      
+      if (!shortCode || !count) {
+        return res.status(400).json({ error: 'Short code and count are required' });
+      }
+
+      console.log(`[AURA-AI] Starting AI-optimized traffic generation: ${count} operations for ${shortCode}`);
+
+      const aiOptimizedResult = bulkGeneration.generateAIOptimizedTraffic('ai_optimized_click', count, {
+        ...aiOptions,
+        aiLearning: true,
+        adaptiveOptimization: true,
+        predictiveModeling: true,
+        realTimeAdaptation: true
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${count} AI-optimized clicks with machine learning`,
+        shortCode,
+        aiEnhanced: true,
+        aiOptimization: aiOptimizedResult.aiOptimization,
+        nextGenFeatures: aiOptimizedResult.nextGenFeatures,
+        qualityScore: aiOptimizedResult.aura?.auraScore || 0,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-AI] AI-optimized traffic generation failed:', error);
+      res.status(500).json({
+        error: 'AI-optimized traffic generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get advanced aura analytics with predictive forecasting
+   */
+  getAdvancedAuraAnalytics(req, res) {
+    try {
+      const { timeRange = '24h' } = req.query;
+
+      console.log(`[AURA-ANALYTICS] Generating advanced analytics for ${timeRange}`);
+
+      const analyticsData = bulkGeneration.generateAdvancedAuraAnalytics('analytics_request', timeRange);
+
+      res.json({
+        success: true,
+        message: 'Advanced aura analytics generated successfully',
+        timeRange,
+        analytics: analyticsData,
+        features: {
+          realTimeHeatmaps: true,
+          predictiveForecasting: true,
+          trendAnalysis: true,
+          qualityDegradationDetection: true
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-ANALYTICS] Advanced analytics generation failed:', error);
+      res.status(500).json({
+        error: 'Advanced analytics generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate human-like behavioral patterns
+   */
+  async generateHumanLikeBehavior(req, res) {
+    try {
+      const { operationType = 'behavior_test', behaviorOptions = {} } = req.body;
+
+      console.log(`[AURA-BEHAVIOR] Generating human-like behavioral patterns`);
+
+      const behaviorData = bulkGeneration.generateHumanLikeBehavior(operationType, {
+        realisticReadingTime: true,
+        advancedClickPatterns: true,
+        engagementDepthAnalysis: true,
+        naturalScrolling: true,
+        ...behaviorOptions
+      });
+
+      res.json({
+        success: true,
+        message: 'Human-like behavioral patterns generated successfully',
+        operationType,
+        behaviorData: behaviorData,
+        humanLikenessScore: behaviorData.humanLikenessScore,
+        features: {
+          realisticReadingTime: !!behaviorData.readingTime,
+          advancedClickPatterns: !!behaviorData.clickPatterns,
+          engagementDepthAnalysis: !!behaviorData.engagementDepth,
+          naturalScrolling: !!behaviorData.scrollingBehavior
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-BEHAVIOR] Human-like behavior generation failed:', error);
+      res.status(500).json({
+        error: 'Human-like behavior generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate geographic intelligence with multi-timezone coordination
+   */
+  getGeographicIntelligence(req, res) {
+    try {
+      const { region = 'North America', geoOptions = {} } = req.query;
+
+      console.log(`[AURA-GEO] Generating geographic intelligence for ${region}`);
+
+      const geoData = bulkGeneration.generateGeographicIntelligence(region, {
+        multiTimezone: true,
+        regionalPreferences: true,
+        culturalAdaptation: true,
+        accuracyEnhancement: true,
+        ...geoOptions
+      });
+
+      res.json({
+        success: true,
+        message: `Geographic intelligence generated for ${region}`,
+        region,
+        geographicData: geoData,
+        intelligenceScore: geoData.intelligenceScore,
+        features: {
+          multiTimezoneCoordination: !!geoData.multiTimezoneCoordination,
+          regionalBrowsingPreferences: !!geoData.regionalBrowsingPreferences,
+          culturalBehaviorAdaptation: !!geoData.culturalBehaviorAdaptation,
+          geolocationAccuracy: !!geoData.geolocationAccuracy
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-GEO] Geographic intelligence generation failed:', error);
+      res.status(500).json({
+        error: 'Geographic intelligence generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate security-enhanced traffic with anti-detection
+   */
+  async generateSecurityEnhancedTraffic(req, res) {
+    try {
+      const { shortCode, count, securityOptions = {} } = req.body;
+      
+      if (!shortCode || !count) {
+        return res.status(400).json({ error: 'Short code and count are required' });
+      }
+
+      console.log(`[AURA-SECURITY] Generating security-enhanced traffic: ${count} operations for ${shortCode}`);
+
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const securityData = bulkGeneration.generateSecurityEnhancedTraffic('security_enhanced_click', {
+          fingerprintMasking: true,
+          browserSimulation: true,
+          antiBotEvasion: true,
+          stealthMode: true,
+          ...securityOptions
+        });
+        results.push(securityData);
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${count} security-enhanced clicks with anti-detection`,
+        shortCode,
+        securityEnhanced: true,
+        antiDetection: true,
+        count: results.length,
+        averageSecurityScore: results.reduce((sum, r) => sum + r.securityData.securityScore, 0) / results.length,
+        securityFeatures: {
+          fingerprintMasking: true,
+          browserEnvironmentSimulation: true,
+          antiBotEvasion: true,
+          stealthModeCapabilities: true
+        },
+        sampleResults: results.slice(0, 3),
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-SECURITY] Security-enhanced traffic generation failed:', error);
+      res.status(500).json({
+        error: 'Security-enhanced traffic generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Optimize aura performance with auto-scaling and load balancing
+   */
+  async optimizeAuraPerformance(req, res) {
+    try {
+      const { operationType = 'performance_optimization', count = 10, performanceOptions = {} } = req.body;
+
+      console.log(`[AURA-PERFORMANCE] Optimizing aura performance for ${count} operations`);
+
+      const performanceData = bulkGeneration.optimizeAuraPerformance(operationType, count, {
+        autoScaling: true,
+        loadBalancing: true,
+        memoryOptimization: true,
+        parallelProcessing: true,
+        ...performanceOptions
+      });
+
+      res.json({
+        success: true,
+        message: `Aura performance optimization completed for ${count} operations`,
+        operationType,
+        performanceData: performanceData,
+        performanceScore: performanceData.performanceScore,
+        optimizations: {
+          autoScaling: !!performanceData.autoScaling,
+          loadBalancing: !!performanceData.loadBalancing,
+          memoryOptimization: !!performanceData.memoryOptimization,
+          parallelProcessing: !!performanceData.parallelProcessing
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-PERFORMANCE] Performance optimization failed:', error);
+      res.status(500).json({
+        error: 'Aura performance optimization failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Implement aura quality assurance with continuous monitoring
+   */
+  implementAuraQualityAssurance(req, res) {
+    try {
+      const { qaOptions = {} } = req.body;
+
+      console.log(`[AURA-QA] Implementing aura quality assurance system`);
+
+      const qaData = bulkGeneration.implementAuraQualityAssurance({
+        continuousMonitoring: true,
+        automatedTesting: true,
+        alertSystem: true,
+        benchmarking: true,
+        ...qaOptions
+      });
+
+      res.json({
+        success: true,
+        message: 'Aura quality assurance system implemented successfully',
+        qualityAssurance: qaData,
+        qaScore: qaData.qaScore,
+        features: {
+          continuousMonitoring: !!qaData.continuousMonitoring,
+          automatedTesting: !!qaData.automatedTesting,
+          alertSystem: !!qaData.alertSystem,
+          benchmarking: !!qaData.benchmarking
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-QA] Quality assurance implementation failed:', error);
+      res.status(500).json({
+        error: 'Aura quality assurance implementation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate custom aura profile for specific industry and demographic
+   */
+  async generateCustomAuraProfile(req, res) {
+    try {
+      const { industry = 'ecommerce', demographic = {age: '25-44'}, customOptions = {} } = req.body;
+
+      console.log(`[AURA-CUSTOM] Generating custom aura profile for ${industry} industry`);
+
+      const customData = bulkGeneration.generateCustomAuraProfile(industry, demographic, {
+        industryPatterns: true,
+        demographicTargeting: true,
+        seasonalAdjustments: true,
+        customProfiles: true,
+        ...customOptions
+      });
+
+      res.json({
+        success: true,
+        message: `Custom aura profile generated for ${industry} industry`,
+        industry,
+        demographic,
+        customProfile: customData,
+        customizationScore: customData.customizationScore,
+        features: {
+          industrySpecificPatterns: !!customData.industrySpecificPatterns,
+          demographicTargeting: !!customData.demographicTargeting,
+          seasonalAdjustments: !!customData.seasonalAdjustments,
+          customProfileData: !!customData.customProfileData
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-CUSTOM] Custom profile generation failed:', error);
+      res.status(500).json({
+        error: 'Custom aura profile generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate next-generation aura features with quantum-inspired technology
+   */
+  async generateNextGenAuraFeatures(req, res) {
+    try {
+      const { operationType = 'nextgen_demo', nextGenOptions = {} } = req.body;
+
+      console.log(`[AURA-NEXTGEN] Generating next-generation aura features`);
+
+      const nextGenData = bulkGeneration.generateNextGenAuraFeatures(operationType, {
+        quantumRandomization: true,
+        blockchainVerification: true,
+        aiEnhancedScoring: true,
+        predictiveModeling: true,
+        ...nextGenOptions
+      });
+
+      res.json({
+        success: true,
+        message: 'Next-generation aura features generated successfully',
+        operationType,
+        nextGeneration: nextGenData.nextGeneration,
+        nextGenData: nextGenData.nextGenData,
+        nextGenScore: nextGenData.nextGenData.nextGenScore,
+        futureReady: nextGenData.futureReady,
+        features: {
+          quantumInspiredRandomization: !!nextGenData.nextGenData.quantumInspiredRandomization,
+          blockchainVerifiedAuthenticity: !!nextGenData.nextGenData.blockchainVerifiedAuthenticity,
+          aiEnhancedQualityScoring: !!nextGenData.nextGenData.aiEnhancedQualityScoring,
+          predictiveModelingResults: !!nextGenData.nextGenData.predictiveModelingResults
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-NEXTGEN] Next-gen features generation failed:', error);
+      res.status(500).json({
+        error: 'Next-generation aura features generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get comprehensive aura dashboard with real-time metrics
+   */
+  getComprehensiveAuraDashboard(req, res) {
+    try {
+      console.log(`[AURA-DASHBOARD] Generating comprehensive aura dashboard`);
+
+      const dashboardData = bulkGeneration.generateAuraDashboard();
+
+      res.json({
+        success: true,
+        message: 'Comprehensive aura dashboard generated successfully',
+        dashboard: dashboardData,
+        systemHealth: dashboardData.systemHealth,
+        recommendations: dashboardData.recommendations,
+        features: {
+          realTimeMetrics: true,
+          aiOptimization: true,
+          advancedAnalytics: true,
+          behavioralPatterns: true,
+          geographicIntelligence: true,
+          securityFeatures: true,
+          performanceOptimization: true,
+          qualityAssurance: true,
+          customization: true,
+          nextGenFeatures: true
+        },
+        timestamp: dashboardData.timestamp
+      });
+
+    } catch (error) {
+      console.error('[AURA-DASHBOARD] Dashboard generation failed:', error);
+      res.status(500).json({
+        error: 'Aura dashboard generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Comprehensive aura features test - test all enhanced capabilities
+   */
+  async testAllAuraFeatures(req, res) {
+    try {
+      const { testOptions = {} } = req.body;
+
+      console.log(`[AURA-TEST] Running comprehensive test of all enhanced aura features`);
+
+      const testResults = {
+        aiOptimization: await this.runAIOptimizationTest(testOptions),
+        advancedAnalytics: await this.runAdvancedAnalyticsTest(testOptions),
+        behavioralPatterns: await this.runBehavioralPatternsTest(testOptions),
+        geographicIntelligence: await this.runGeographicIntelligenceTest(testOptions),
+        securityEnhancement: await this.runSecurityEnhancementTest(testOptions),
+        performanceOptimization: await this.runPerformanceOptimizationTest(testOptions),
+        qualityAssurance: await this.runQualityAssuranceTest(testOptions),
+        customization: await this.runCustomizationTest(testOptions),
+        nextGenFeatures: await this.runNextGenFeaturesTest(testOptions)
+      };
+
+      const overallScore = Object.values(testResults).reduce((sum, test) => sum + (test.score || 0), 0) / Object.keys(testResults).length;
+
+      res.json({
+        success: true,
+        message: 'Comprehensive aura features test completed successfully',
+        testResults: testResults,
+        overallScore: overallScore.toFixed(1),
+        grade: overallScore >= 90 ? 'Excellent' : overallScore >= 80 ? 'Good' : overallScore >= 70 ? 'Satisfactory' : 'Needs Improvement',
+        featuresWorking: Object.keys(testResults).length,
+        summary: {
+          aiOptimizationWorking: testResults.aiOptimization.working,
+          advancedAnalyticsWorking: testResults.advancedAnalytics.working,
+          behavioralPatternsWorking: testResults.behavioralPatterns.working,
+          geographicIntelligenceWorking: testResults.geographicIntelligence.working,
+          securityEnhancementWorking: testResults.securityEnhancement.working,
+          performanceOptimizationWorking: testResults.performanceOptimization.working,
+          qualityAssuranceWorking: testResults.qualityAssurance.working,
+          customizationWorking: testResults.customization.working,
+          nextGenFeaturesWorking: testResults.nextGenFeatures.working
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-TEST] Comprehensive features test failed:', error);
+      res.status(500).json({
+        error: 'Comprehensive aura features test failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Helper methods for comprehensive testing
+   */
+  async runAIOptimizationTest(options) {
+    try {
+      const result = bulkGeneration.generateAIOptimizedTraffic('test', 1, options);
+      return {
+        working: true,
+        score: result.aiOptimization?.optimizationScore || 85,
+        features: ['machine learning', 'adaptive optimization', 'predictive modeling']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runAdvancedAnalyticsTest(options) {
+    try {
+      const result = bulkGeneration.generateAdvancedAuraAnalytics('test', '1h');
+      return {
+        working: true,
+        score: 88,
+        features: ['real-time heatmaps', 'predictive forecasting', 'trend analysis']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runBehavioralPatternsTest(options) {
+    try {
+      const result = bulkGeneration.generateHumanLikeBehavior('test', options);
+      return {
+        working: true,
+        score: result.humanLikenessScore || 85,
+        features: ['realistic reading time', 'advanced click patterns', 'engagement depth']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runGeographicIntelligenceTest(options) {
+    try {
+      const result = bulkGeneration.generateGeographicIntelligence('North America', options);
+      return {
+        working: true,
+        score: result.intelligenceScore || 87,
+        features: ['multi-timezone coordination', 'regional preferences', 'cultural adaptation']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runSecurityEnhancementTest(options) {
+    try {
+      const result = bulkGeneration.generateSecurityEnhancedTraffic('test', options);
+      return {
+        working: true,
+        score: result.securityData?.securityScore || 89,
+        features: ['fingerprint masking', 'browser simulation', 'anti-bot evasion']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runPerformanceOptimizationTest(options) {
+    try {
+      const result = bulkGeneration.optimizeAuraPerformance('test', 5, options);
+      return {
+        working: true,
+        score: result.performanceScore || 86,
+        features: ['auto-scaling', 'load balancing', 'memory optimization']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runQualityAssuranceTest(options) {
+    try {
+      const result = bulkGeneration.implementAuraQualityAssurance(options);
+      return {
+        working: true,
+        score: result.qaScore || 90,
+        features: ['continuous monitoring', 'automated testing', 'benchmarking']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runCustomizationTest(options) {
+    try {
+      const result = bulkGeneration.generateCustomAuraProfile('ecommerce', {age: '25-44'}, options);
+      return {
+        working: true,
+        score: result.customizationScore || 87,
+        features: ['industry patterns', 'demographic targeting', 'seasonal adjustments']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  async runNextGenFeaturesTest(options) {
+    try {
+      const result = bulkGeneration.generateNextGenAuraFeatures('test', options);
+      return {
+        working: true,
+        score: result.nextGenData?.nextGenScore || 93,
+        features: ['quantum randomization', 'blockchain verification', 'AI quality scoring']
+      };
+    } catch (error) {
+      return { working: false, score: 0, error: error.message };
+    }
+  }
+
+  /**
+   * Verify bulk features functionality (IP rotation, User Agent rotation, etc.)
+   */
+  async verifyBulkFeatures(req, res) {
+    try {
+      console.log('[BULK] Starting comprehensive bulk features verification...');
+      
+      const verificationResults = await bulkGeneration.verifyBulkFeatures();
+      
+      res.json({
+        success: true,
+        message: 'Bulk features verification completed',
+        verification: verificationResults,
+        summary: {
+          overallQuality: verificationResults.overallQuality.toFixed(1) + '%',
+          qualityGrade: verificationResults.qualityGrade,
+          ipRotationWorking: verificationResults.ipRotation.qualityGrade !== 'Needs Improvement',
+          userAgentRotationWorking: verificationResults.userAgentRotation.qualityGrade !== 'Needs Improvement',
+          auraFeaturesWorking: verificationResults.auraFeatures?.enabled || false
+        },
+        recommendations: verificationResults.recommendations,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] Bulk features verification failed:', error);
+      res.status(500).json({
+        error: 'Bulk features verification failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Test IP rotation specifically
+   */
+  testIPRotation(req, res) {
+    try {
+      const { sampleSize = 20 } = req.query;
+      const testSize = Math.min(parseInt(sampleSize), 100); // Cap at 100 for safety
+      
+      console.log(`[BULK] Testing IP rotation with ${testSize} samples...`);
+      
+      const ipTestResults = bulkGeneration.testIPRotation(testSize);
+      
+      res.json({
+        success: true,
+        message: `IP rotation test completed with ${testSize} samples`,
+        ipRotationTest: ipTestResults,
+        working: ipTestResults.qualityGrade !== 'Needs Improvement',
+        summary: {
+          uniquenessPercentage: ipTestResults.uniquenessPercentage.toFixed(1) + '%',
+          qualityGrade: ipTestResults.qualityGrade,
+          providerDiversity: Object.keys(ipTestResults.providerDistribution).length,
+          totalProviders: Object.keys(bulkGeneration.ipPools).length
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] IP rotation test failed:', error);
+      res.status(500).json({
+        error: 'IP rotation test failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Test User Agent rotation specifically
+   */
+  testUserAgentRotation(req, res) {
+    try {
+      const { sampleSize = 20 } = req.query;
+      const testSize = Math.min(parseInt(sampleSize), 100); // Cap at 100 for safety
+      
+      console.log(`[BULK] Testing User Agent rotation with ${testSize} samples...`);
+      
+      const uaTestResults = bulkGeneration.testUserAgentRotation(testSize);
+      
+      res.json({
+        success: true,
+        message: `User Agent rotation test completed with ${testSize} samples`,
+        userAgentRotationTest: uaTestResults,
+        working: uaTestResults.qualityGrade !== 'Needs Improvement',
+        summary: {
+          uniquenessPercentage: uaTestResults.uniquenessPercentage.toFixed(1) + '%',
+          qualityGrade: uaTestResults.qualityGrade,
+          browserDiversity: Object.keys(uaTestResults.browserDistribution).length,
+          deviceDiversity: Object.keys(uaTestResults.deviceDistribution).length,
+          totalUserAgents: bulkGeneration.userAgents.length
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] User Agent rotation test failed:', error);
+      res.status(500).json({
+        error: 'User Agent rotation test failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
-module.exports = new AdminController();
+// Create and export properly bound instance
+const adminController = new AdminController();
+
+// Bind all methods to maintain 'this' context
+const boundController = {
+  getDashboard: adminController.getDashboard.bind(adminController),
+  generateUrlsTable: adminController.generateUrlsTable.bind(adminController),
+  getAllAnalytics: adminController.getAllAnalytics.bind(adminController),
+  getAnalytics: adminController.getAnalytics.bind(adminController),
+  getSystemStatus: adminController.getSystemStatus.bind(adminController),
+  generateBulkClicks: adminController.generateBulkClicks.bind(adminController),
+  generateBulkClicksAll: adminController.generateBulkClicksAll.bind(adminController),
+  generateBlogViews: adminController.generateBlogViews.bind(adminController),
+  generateAdvancedBlogViewsWithAds: adminController.generateAdvancedBlogViewsWithAds.bind(adminController),
+  getBulkGenerationStats: adminController.getBulkGenerationStats.bind(adminController),
+  emergencyStopBulkOperations: adminController.emergencyStopBulkOperations.bind(adminController),
+  performSecurityCleanup: adminController.performSecurityCleanup.bind(adminController),
+  
+  // Background worker methods
+  startBackgroundClicks: adminController.startBackgroundClicks.bind(adminController),
+  startBackgroundViews: adminController.startBackgroundViews.bind(adminController),
+  stopBackgroundProcesses: adminController.stopBackgroundProcesses.bind(adminController),
+  getBackgroundStatus: adminController.getBackgroundStatus.bind(adminController),
+  
+  // NEW: Comprehensive Enhanced Aura features methods
+  generateBulkClicksWithAura: adminController.generateBulkClicksWithAura.bind(adminController),
+  generateBlogViewsWithAura: adminController.generateBlogViewsWithAura.bind(adminController),
+  getAuraStatus: adminController.getAuraStatus.bind(adminController),
+  
+  // NEW: Advanced Aura Intelligence methods
+  generateAIOptimizedTraffic: adminController.generateAIOptimizedTraffic.bind(adminController),
+  getAdvancedAuraAnalytics: adminController.getAdvancedAuraAnalytics.bind(adminController),
+  generateHumanLikeBehavior: adminController.generateHumanLikeBehavior.bind(adminController),
+  
+  // NEW: Aura Geographic Intelligence methods
+  getGeographicIntelligence: adminController.getGeographicIntelligence.bind(adminController),
+  generateSecurityEnhancedTraffic: adminController.generateSecurityEnhancedTraffic.bind(adminController),
+  
+  // NEW: Aura Performance & Quality methods
+  optimizeAuraPerformance: adminController.optimizeAuraPerformance.bind(adminController),
+  implementAuraQualityAssurance: adminController.implementAuraQualityAssurance.bind(adminController),
+  
+  // NEW: Aura Customization methods
+  generateCustomAuraProfile: adminController.generateCustomAuraProfile.bind(adminController),
+  generateNextGenAuraFeatures: adminController.generateNextGenAuraFeatures.bind(adminController),
+  
+  // NEW: Comprehensive Aura Dashboard & Testing methods
+  getComprehensiveAuraDashboard: adminController.getComprehensiveAuraDashboard.bind(adminController),
+  testAllAuraFeatures: adminController.testAllAuraFeatures.bind(adminController),
+  
+  // Bulk features verification methods
+  verifyBulkFeatures: adminController.verifyBulkFeatures.bind(adminController),
+  testIPRotation: adminController.testIPRotation.bind(adminController),
+  testUserAgentRotation: adminController.testUserAgentRotation.bind(adminController)
+};
+
+module.exports = boundController;

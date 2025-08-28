@@ -3,6 +3,17 @@
  * Clean, modular architecture with proper separation of concerns
  */
 
+// Check if dependencies are installed
+try {
+  require('express');
+} catch (error) {
+  console.error('\n❌ Dependencies not installed!');
+  console.error('Please run: npm install');
+  console.error('Or use the quick setup script: ./setup.sh');
+  console.error('\nFor more information, see README.md\n');
+  process.exit(1);
+}
+
 const express = require('express');
 const { CONFIG } = require('./src/config/constants');
 
@@ -54,10 +65,47 @@ app.post('/admin/api/blog/automation/generate-views', requireUltraSecureAuth, Ad
 // EXPERIMENTAL: Advanced Blog Views with Ads Interactions (requires ultra-secure authentication)
 app.post('/admin/api/blog/automation/generate-advanced-views-with-ads', requireUltraSecureAuth, AdminController.generateAdvancedBlogViewsWithAds);
 
+// Background continuous generation endpoints (requires ultra-secure authentication)
+app.post('/admin/api/automation/start-background-clicks', requireUltraSecureAuth, AdminController.startBackgroundClicks);
+app.post('/admin/api/automation/start-background-views', requireUltraSecureAuth, AdminController.startBackgroundViews);
+app.post('/admin/api/automation/stop-background-processes', requireUltraSecureAuth, AdminController.stopBackgroundProcesses);
+app.get('/admin/api/automation/background-status', requireAdvancedAuth, AdminController.getBackgroundStatus);
+
 // Bulk generation management routes (requires advanced authentication)
 app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getBulkGenerationStats);
 app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
 app.post('/admin/api/automation/cleanup', requireAdvancedAuth, AdminController.performSecurityCleanup);
+
+// ENHANCED: Comprehensive Aura Features API Routes - Many More Advanced Capabilities
+app.post('/admin/api/aura/generate-clicks', requireUltraSecureAuth, AdminController.generateBulkClicksWithAura);
+app.post('/admin/api/aura/generate-blog-views', requireUltraSecureAuth, AdminController.generateBlogViewsWithAura);
+app.get('/admin/api/aura/status', requireAdvancedAuth, AdminController.getAuraStatus);
+
+// NEW: Advanced Aura Intelligence API Routes
+app.post('/admin/api/aura/ai-optimized-traffic', requireUltraSecureAuth, AdminController.generateAIOptimizedTraffic);
+app.get('/admin/api/aura/advanced-analytics', requireAdvancedAuth, AdminController.getAdvancedAuraAnalytics);
+app.post('/admin/api/aura/human-behavior', requireAdvancedAuth, AdminController.generateHumanLikeBehavior);
+
+// NEW: Aura Geographic Intelligence API Routes
+app.get('/admin/api/aura/geographic-intelligence', requireAdvancedAuth, AdminController.getGeographicIntelligence);
+app.post('/admin/api/aura/security-enhanced-traffic', requireUltraSecureAuth, AdminController.generateSecurityEnhancedTraffic);
+
+// NEW: Aura Performance & Quality API Routes
+app.post('/admin/api/aura/optimize-performance', requireAdvancedAuth, AdminController.optimizeAuraPerformance);
+app.post('/admin/api/aura/quality-assurance', requireAdvancedAuth, AdminController.implementAuraQualityAssurance);
+
+// NEW: Aura Customization API Routes
+app.post('/admin/api/aura/custom-profile', requireAdvancedAuth, AdminController.generateCustomAuraProfile);
+app.post('/admin/api/aura/nextgen-features', requireUltraSecureAuth, AdminController.generateNextGenAuraFeatures);
+
+// NEW: Comprehensive Aura Dashboard & Testing API Routes
+app.get('/admin/api/aura/dashboard', requireAdvancedAuth, AdminController.getComprehensiveAuraDashboard);
+app.post('/admin/api/aura/test-all-features', requireAdvancedAuth, AdminController.testAllAuraFeatures);
+
+// NEW: Bulk Features Verification API Routes - Ensure IP/UA rotation is working
+app.get('/admin/api/bulk/verify', requireAdvancedAuth, AdminController.verifyBulkFeatures);
+app.get('/admin/api/bulk/test-ip-rotation', requireAdvancedAuth, AdminController.testIPRotation);
+app.get('/admin/api/bulk/test-ua-rotation', requireAdvancedAuth, AdminController.testUserAgentRotation);
 
 // Short URL redirect (must be last to avoid conflicts)
 app.get('/:shortCode', MainController.redirectToOriginal);
@@ -86,6 +134,22 @@ app.use((error, req, res, next) => {
 // Graceful shutdown handling
 function gracefulShutdown() {
   console.log('\n[SHUTDOWN] Gracefully shutting down...');
+  
+  // Stop background workers
+  try {
+    const { stopBackgroundWorkers } = require('./src/utils/backgroundWorkers');
+    stopBackgroundWorkers();
+  } catch (error) {
+    console.log('[SHUTDOWN] Note: Background workers cleanup completed or not running');
+  }
+  
+  // Stop auth cleanup interval
+  try {
+    const { stopAuthCleanup } = require('./src/middleware/auth');
+    stopAuthCleanup();
+  } catch (error) {
+    console.log('[SHUTDOWN] Note: Auth cleanup already stopped');
+  }
   
   // Close server
   server.close(() => {
