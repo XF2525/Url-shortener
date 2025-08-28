@@ -3,6 +3,17 @@
  * Clean, modular architecture with proper separation of concerns
  */
 
+// Check if dependencies are installed
+try {
+  require('express');
+} catch (error) {
+  console.error('\n❌ Dependencies not installed!');
+  console.error('Please run: npm install');
+  console.error('Or use the quick setup script: ./setup.sh');
+  console.error('\nFor more information, see README.md\n');
+  process.exit(1);
+}
+
 const express = require('express');
 const { CONFIG } = require('./src/config/constants');
 

@@ -102,13 +102,21 @@ cd Url-shortener
 npm install
 ```
 
-### 2. Development
+### 2. Quick Setup (Recommended)
+Use our setup script for automated installation and startup:
+```bash
+./setup.sh
+# Automatically installs dependencies and starts the server
+# Visit http://localhost:3000
+```
+
+### 3. Development
 ```bash
 npm run dev
 # Visit http://localhost:3000
 ```
 
-### 3. Production Deployment
+### 4. Production Deployment
 
 #### Option A: GitHub Actions (Recommended)
 The repository automatically deploys via GitHub Actions:
@@ -398,6 +406,42 @@ The project includes:
 ## License
 
 ISC
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### "Cannot find module 'express'" Error
+This means dependencies aren't installed. Run:
+```bash
+npm install
+```
+Or use the setup script:
+```bash
+./setup.sh
+```
+
+#### Server not starting
+1. Check if Node.js 14+ is installed: `node --version`
+2. Check if npm is installed: `npm --version`
+3. Ensure you're in the project directory
+4. Try the automated setup: `./setup.sh`
+5. Check if port 3000 is available: `lsof -i :3000`
+
+#### Testing Links Not Working
+After cloning the repository, always run:
+```bash
+npm install  # Install dependencies
+npm start    # Start the server
+```
+
+Then visit: http://localhost:3000
+
+### Getting Help
+- Check application health: `curl http://localhost:3000/health`
+- Review the setup script: `./setup.sh`
+- Check logs for error messages
+- Ensure all prerequisites are installed
 
 ## Support
 
