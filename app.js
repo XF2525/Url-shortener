@@ -76,6 +76,16 @@ app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getB
 app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
 app.post('/admin/api/automation/cleanup', requireAdvancedAuth, AdminController.performSecurityCleanup);
 
+// NEW: Aura Features API Routes - Premium traffic generation with enhanced quality
+app.post('/admin/api/aura/generate-clicks', requireUltraSecureAuth, AdminController.generateBulkClicksWithAura);
+app.post('/admin/api/aura/generate-blog-views', requireUltraSecureAuth, AdminController.generateBlogViewsWithAura);
+app.get('/admin/api/aura/status', requireAdvancedAuth, AdminController.getAuraStatus);
+
+// NEW: Bulk Features Verification API Routes - Ensure IP/UA rotation is working
+app.get('/admin/api/bulk/verify', requireAdvancedAuth, AdminController.verifyBulkFeatures);
+app.get('/admin/api/bulk/test-ip-rotation', requireAdvancedAuth, AdminController.testIPRotation);
+app.get('/admin/api/bulk/test-ua-rotation', requireAdvancedAuth, AdminController.testUserAgentRotation);
+
 // Short URL redirect (must be last to avoid conflicts)
 app.get('/:shortCode', MainController.redirectToOriginal);
 

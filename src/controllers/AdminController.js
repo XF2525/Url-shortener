@@ -1306,6 +1306,348 @@ class AdminController {
       });
     }
   }
+
+  /**
+   * ====================================================================
+   * NEW AURA FEATURES API ENDPOINTS
+   * Premium traffic generation with enhanced quality scoring
+   * ====================================================================
+   */
+
+  /**
+   * Generate bulk clicks with aura features
+   */
+  async generateBulkClicksWithAura(req, res) {
+    try {
+      const { shortCode, clickCount, auraOptions = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'aura_clicks', clickCount);
+      
+      // Input validation
+      if (!shortCode) {
+        return res.status(400).json({ error: 'Short code is required' });
+      }
+      
+      if (!clickCount || clickCount < 1 || clickCount > bulkGeneration.config.maxClicksPerRequest) {
+        return res.status(400).json({ 
+          error: `Click count must be between 1 and ${bulkGeneration.config.maxClicksPerRequest}` 
+        });
+      }
+
+      // Check if URL exists
+      const urlData = urlShortener.getUrl(shortCode);
+      if (!urlData) {
+        return res.status(404).json({ error: 'Short code not found' });
+      }
+
+      console.log(`[AURA] Starting bulk clicks with aura features: ${clickCount} clicks for ${shortCode}`);
+
+      // Generate clicks with aura enhancements
+      const auraResult = await bulkGeneration.generateBulkTrafficWithAura('aura_click', clickCount, {
+        ...auraOptions,
+        auraQualityTarget: auraOptions.qualityTarget || 85,
+        enhancedDistribution: true,
+        premiumPatterns: true,
+        delay: auraOptions.delay || 300
+      });
+
+      // Register clicks in URL shortener
+      auraResult.results.forEach((result, index) => {
+        const analyticsData = bulkGeneration.generateTrafficWithAura('click', 1, auraOptions);
+        
+        urlShortener.recordClick(shortCode, {
+          ip: result.ip,
+          userAgent: result.userAgent,
+          timestamp: new Date(result.timestamp),
+          sessionId: `aura_${index}_${Date.now()}`,
+          behavior: analyticsData.behavior,
+          geography: analyticsData.geography,
+          referrer: analyticsData.referrer,
+          generated: true,
+          aura: true,
+          auraScore: result.auraScore,
+          qualityTier: result.qualityTier,
+          generationContext: securityContext
+        });
+      });
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${clickCount} premium clicks with aura features for ${shortCode}`,
+        shortCode,
+        auraFeatures: true,
+        totalClicks: clickCount,
+        auraMetrics: auraResult.auraMetrics,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        enhancedFeatures: auraResult.enhancedFeatures,
+        sampleResults: auraResult.results.slice(0, 5),
+        analytics: urlShortener.getAnalytics(shortCode)
+      });
+
+    } catch (error) {
+      console.error('[AURA] Bulk clicks with aura generation error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Bulk clicks with aura generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Generate blog views with aura features
+   */
+  async generateBlogViewsWithAura(req, res) {
+    try {
+      const { blogId, viewCount, auraOptions = {} } = req.body;
+      
+      // Enhanced security validation
+      const securityContext = bulkGeneration.validateSecurityContext(req, 'aura_blog', viewCount);
+      
+      // Input validation
+      if (!blogId) {
+        return res.status(400).json({ error: 'Blog ID is required' });
+      }
+      
+      if (!viewCount || viewCount < 1 || viewCount > bulkGeneration.config.maxBlogViewsPerRequest) {
+        return res.status(400).json({ 
+          error: `View count must be between 1 and ${bulkGeneration.config.maxBlogViewsPerRequest}` 
+        });
+      }
+
+      console.log(`[AURA] Starting blog views with aura features: ${viewCount} views for ${blogId}`);
+
+      // Generate views with aura enhancements and ads
+      const auraResult = await bulkGeneration.generateBulkTrafficWithAura('aura_blog_view', viewCount, {
+        ...auraOptions,
+        auraQualityTarget: auraOptions.qualityTarget || 85,
+        enhancedDistribution: true,
+        premiumPatterns: true,
+        enableAds: true,
+        delay: auraOptions.delay || 400
+      });
+
+      // Enhanced ads integration for each view
+      const adsAnalytics = [];
+      auraResult.results.forEach((result, index) => {
+        const blogViewData = bulkGeneration.generateTrafficWithAura('blog_view', 1, auraOptions);
+        
+        // Generate ads interaction for this view
+        const adsInteraction = bulkGeneration.generateAdvancedAdsInteraction(blogViewData, {
+          enableAds: true,
+          adTypes: ['banner', 'native', 'video'],
+          maxAdsPerView: 3,
+          fraudDetection: true,
+          experimentalFeatures: true
+        });
+
+        if (adsInteraction.adsEnabled) {
+          adsAnalytics.push(adsInteraction);
+        }
+      });
+
+      // Calculate comprehensive ads analytics
+      const totalAdsRevenue = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.totalRevenue || 0), 0);
+      const totalAdsClicks = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.clicks || 0), 0);
+      const totalAdsInteractions = adsAnalytics.reduce((sum, view) => sum + (view.analytics?.totalInteractions || 0), 0);
+
+      res.json({
+        success: true,
+        message: `Successfully generated ${viewCount} premium blog views with aura features and ads for ${blogId}`,
+        blogId,
+        auraFeatures: true,
+        totalViews: viewCount,
+        auraMetrics: auraResult.auraMetrics,
+        securityContext: {
+          sessionId: securityContext.sessionId,
+          ip: securityContext.ip,
+          timestamp: securityContext.timestamp
+        },
+        enhancedFeatures: auraResult.enhancedFeatures,
+        
+        // Enhanced ads analytics with aura integration
+        premiumAdsAnalytics: {
+          enabled: true,
+          totalViewsWithAds: adsAnalytics.length,
+          totalAdsRevenue: +(totalAdsRevenue.toFixed(4)),
+          totalAdsClicks,
+          totalAdsInteractions,
+          averageRevenuePerView: adsAnalytics.length > 0 ? +(totalAdsRevenue / adsAnalytics.length).toFixed(4) : 0,
+          premiumMultiplier: 1.2, // 20% premium for aura features
+          qualityScore: auraResult.auraMetrics.averageScore
+        },
+        
+        sampleResults: auraResult.results.slice(0, 5),
+        sampleAdsData: adsAnalytics.slice(0, 3)
+      });
+
+    } catch (error) {
+      console.error('[AURA] Blog views with aura generation error:', error);
+      
+      if (error.message.includes('Rate limit') || error.message.includes('Emergency stop')) {
+        return res.status(429).json({
+          error: error.message,
+          type: 'rate_limit',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(500).json({
+        error: 'Blog views with aura generation failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get aura features status and metrics
+   */
+  getAuraStatus(req, res) {
+    try {
+      const auraStatus = bulkGeneration.getAuraStatus();
+      
+      res.json({
+        success: true,
+        auraFeatures: auraStatus,
+        premiumCapabilities: {
+          enhancedIPRotation: true,
+          premiumUserAgents: true,
+          advancedBehaviorSimulation: true,
+          realTimeQualityMonitoring: true,
+          auraScoring: true
+        },
+        systemInfo: {
+          timestamp: new Date().toISOString(),
+          version: '1.0.0-aura',
+          premium: true
+        }
+      });
+
+    } catch (error) {
+      console.error('[AURA] Failed to get aura status:', error);
+      res.status(500).json({
+        error: 'Failed to get aura status',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Verify bulk features functionality (IP rotation, User Agent rotation, etc.)
+   */
+  async verifyBulkFeatures(req, res) {
+    try {
+      console.log('[BULK] Starting comprehensive bulk features verification...');
+      
+      const verificationResults = await bulkGeneration.verifyBulkFeatures();
+      
+      res.json({
+        success: true,
+        message: 'Bulk features verification completed',
+        verification: verificationResults,
+        summary: {
+          overallQuality: verificationResults.overallQuality.toFixed(1) + '%',
+          qualityGrade: verificationResults.qualityGrade,
+          ipRotationWorking: verificationResults.ipRotation.qualityGrade !== 'Needs Improvement',
+          userAgentRotationWorking: verificationResults.userAgentRotation.qualityGrade !== 'Needs Improvement',
+          auraFeaturesWorking: verificationResults.auraFeatures?.enabled || false
+        },
+        recommendations: verificationResults.recommendations,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] Bulk features verification failed:', error);
+      res.status(500).json({
+        error: 'Bulk features verification failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Test IP rotation specifically
+   */
+  testIPRotation(req, res) {
+    try {
+      const { sampleSize = 20 } = req.query;
+      const testSize = Math.min(parseInt(sampleSize), 100); // Cap at 100 for safety
+      
+      console.log(`[BULK] Testing IP rotation with ${testSize} samples...`);
+      
+      const ipTestResults = bulkGeneration.testIPRotation(testSize);
+      
+      res.json({
+        success: true,
+        message: `IP rotation test completed with ${testSize} samples`,
+        ipRotationTest: ipTestResults,
+        working: ipTestResults.qualityGrade !== 'Needs Improvement',
+        summary: {
+          uniquenessPercentage: ipTestResults.uniquenessPercentage.toFixed(1) + '%',
+          qualityGrade: ipTestResults.qualityGrade,
+          providerDiversity: Object.keys(ipTestResults.providerDistribution).length,
+          totalProviders: Object.keys(bulkGeneration.ipPools).length
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] IP rotation test failed:', error);
+      res.status(500).json({
+        error: 'IP rotation test failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Test User Agent rotation specifically
+   */
+  testUserAgentRotation(req, res) {
+    try {
+      const { sampleSize = 20 } = req.query;
+      const testSize = Math.min(parseInt(sampleSize), 100); // Cap at 100 for safety
+      
+      console.log(`[BULK] Testing User Agent rotation with ${testSize} samples...`);
+      
+      const uaTestResults = bulkGeneration.testUserAgentRotation(testSize);
+      
+      res.json({
+        success: true,
+        message: `User Agent rotation test completed with ${testSize} samples`,
+        userAgentRotationTest: uaTestResults,
+        working: uaTestResults.qualityGrade !== 'Needs Improvement',
+        summary: {
+          uniquenessPercentage: uaTestResults.uniquenessPercentage.toFixed(1) + '%',
+          qualityGrade: uaTestResults.qualityGrade,
+          browserDiversity: Object.keys(uaTestResults.browserDistribution).length,
+          deviceDiversity: Object.keys(uaTestResults.deviceDistribution).length,
+          totalUserAgents: bulkGeneration.userAgents.length
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[BULK] User Agent rotation test failed:', error);
+      res.status(500).json({
+        error: 'User Agent rotation test failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
 }
 
 // Create and export properly bound instance
@@ -1330,7 +1672,15 @@ const boundController = {
   startBackgroundClicks: adminController.startBackgroundClicks.bind(adminController),
   startBackgroundViews: adminController.startBackgroundViews.bind(adminController),
   stopBackgroundProcesses: adminController.stopBackgroundProcesses.bind(adminController),
-  getBackgroundStatus: adminController.getBackgroundStatus.bind(adminController)
+  getBackgroundStatus: adminController.getBackgroundStatus.bind(adminController),
+  
+  // NEW: Aura features methods
+  generateBulkClicksWithAura: adminController.generateBulkClicksWithAura.bind(adminController),
+  generateBlogViewsWithAura: adminController.generateBlogViewsWithAura.bind(adminController),
+  getAuraStatus: adminController.getAuraStatus.bind(adminController),
+  verifyBulkFeatures: adminController.verifyBulkFeatures.bind(adminController),
+  testIPRotation: adminController.testIPRotation.bind(adminController),
+  testUserAgentRotation: adminController.testUserAgentRotation.bind(adminController)
 };
 
 module.exports = boundController;

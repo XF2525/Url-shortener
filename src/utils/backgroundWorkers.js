@@ -24,7 +24,7 @@ class BackgroundWorkerManager {
       }
     };
     
-    // Default configurations
+      // Default configurations
     this.defaultConfigs = {
       clickGeneration: {
         intervalMs: 5000, // Generate clicks every 5 seconds
@@ -32,7 +32,11 @@ class BackgroundWorkerManager {
         maxClicksPerInterval: 3,
         enableRandomDelay: true,
         delayVariation: 2000, // ±2 seconds
-        respectRateLimits: true
+        respectRateLimits: true,
+        // NEW: Aura features for background workers
+        enableAuraFeatures: true,
+        auraQualityTarget: 85,
+        enhancedDistribution: true
       },
       viewGeneration: {
         intervalMs: 8000, // Generate views every 8 seconds
@@ -42,7 +46,12 @@ class BackgroundWorkerManager {
         delayVariation: 3000, // ±3 seconds
         respectRateLimits: true,
         enableAds: true,
-        adsInteractionRate: 0.7 // 70% of views have ads interactions
+        adsInteractionRate: 0.7, // 70% of views have ads interactions
+        // NEW: Aura features for background workers
+        enableAuraFeatures: true,
+        auraQualityTarget: 88,
+        enhancedDistribution: true,
+        premiumPatterns: true
       }
     };
     
@@ -202,8 +211,13 @@ class BackgroundWorkerManager {
       console.log(`[BACKGROUND] Generating ${clicksToGenerate} background clicks for ${randomUrl.shortCode}`);
 
       for (let i = 0; i < clicksToGenerate; i++) {
-        // Generate realistic analytics data
-        const analyticsData = bulkGeneration.generateSecureAnalyticsData('background_click');
+        // Generate realistic analytics data with aura features if enabled
+        const analyticsData = config.enableAuraFeatures ? 
+          bulkGeneration.generateTrafficWithAura('background_click', 1, {
+            auraQualityTarget: config.auraQualityTarget,
+            enhancedDistribution: config.enhancedDistribution
+          }) :
+          bulkGeneration.generateSecureAnalyticsData('background_click');
         
         // Register the click
         urlShortener.recordClick(randomUrl.shortCode, {
@@ -216,10 +230,13 @@ class BackgroundWorkerManager {
           referrer: analyticsData.referrer,
           generated: true,
           background: true,
+          aura: config.enableAuraFeatures,
+          auraScore: analyticsData.aura?.auraScore || null,
           generationContext: {
             type: 'background_worker',
             workerId: 'clickGeneration',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            auraFeatures: config.enableAuraFeatures
           }
         });
 
@@ -276,8 +293,14 @@ class BackgroundWorkerManager {
       console.log(`[BACKGROUND] Generating ${viewsToGenerate} background blog views`);
 
       for (let i = 0; i < viewsToGenerate; i++) {
-        // Generate realistic blog view analytics
-        const analyticsData = bulkGeneration.generateSecureAnalyticsData('background_blog_view');
+        // Generate realistic blog view analytics with aura features if enabled
+        const analyticsData = config.enableAuraFeatures ? 
+          bulkGeneration.generateTrafficWithAura('background_blog_view', 1, {
+            auraQualityTarget: config.auraQualityTarget,
+            enhancedDistribution: config.enhancedDistribution,
+            premiumPatterns: config.premiumPatterns
+          }) :
+          bulkGeneration.generateSecureAnalyticsData('background_blog_view');
         
         // Enhanced blog-specific behavior
         analyticsData.behavior = {
@@ -320,11 +343,14 @@ class BackgroundWorkerManager {
           referrer: analyticsData.referrer,
           generated: true,
           background: true,
+          aura: config.enableAuraFeatures,
+          auraScore: analyticsData.aura?.auraScore || null,
           adsInteraction: adsInteraction,
           generationContext: {
             type: 'background_worker',
             workerId: 'viewGeneration',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            auraFeatures: config.enableAuraFeatures
           }
         };
 
