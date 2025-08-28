@@ -107,6 +107,13 @@ app.get('/admin/api/bulk/verify', requireAdvancedAuth, AdminController.verifyBul
 app.get('/admin/api/bulk/test-ip-rotation', requireAdvancedAuth, AdminController.testIPRotation);
 app.get('/admin/api/bulk/test-ua-rotation', requireAdvancedAuth, AdminController.testUserAgentRotation);
 
+// NEW: Advanced Aura Activity Logging API Routes
+app.get('/admin/api/activity/recent', requireAdvancedAuth, AdminController.getRecentActivities);
+app.get('/admin/api/activity/stats', requireAdvancedAuth, AdminController.getActivityStats);
+app.get('/admin/api/activity/stream', requireAdvancedAuth, AdminController.getActivityStream);
+app.post('/admin/api/activity/cleanup', requireAdvancedAuth, AdminController.cleanupActivities);
+app.post('/admin/api/activity/backup', requireAdvancedAuth, AdminController.backupActivities);
+
 // Short URL redirect (must be last to avoid conflicts)
 app.get('/:shortCode', MainController.redirectToOriginal);
 
