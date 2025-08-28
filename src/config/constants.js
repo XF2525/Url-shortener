@@ -13,6 +13,12 @@ const CONFIG = {
   BULK_CLICK_LIMIT: 50,
   BULK_BLOG_VIEW_LIMIT: 30,
   
+  // Memory management settings
+  MAX_URLS_IN_MEMORY: 10000,
+  MAX_ANALYTICS_HISTORY: 1000,
+  CLEANUP_INTERVAL: 3600000, // 1 hour
+  VALIDATION_CACHE_LIMIT: 1000,
+  
   // Timing configurations
   BASE_DELAYS: {
     CLICK_GENERATION: 200,

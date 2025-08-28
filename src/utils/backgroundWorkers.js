@@ -8,16 +8,18 @@ const bulkGeneration = require('./bulkGeneration');
 
 class BackgroundWorkerManager {
   constructor() {
-    // Worker state tracking
+    // Worker state tracking with race condition prevention
     this.workers = {
       clickGeneration: {
         active: false,
+        starting: false,
         interval: null,
         config: null,
         stats: { started: null, totalGenerated: 0, errors: 0 }
       },
       viewGeneration: {
         active: false,
+        starting: false,
         interval: null,
         config: null,
         stats: { started: null, totalGenerated: 0, errors: 0 }
@@ -186,55 +188,93 @@ class BackgroundWorkerManager {
   }
 
   /**
-   * Start continuous click generation worker
+   * Start continuous click generation worker with improved safety
    */
   async startClickGeneration(config = {}) {
     try {
+      // Prevent race conditions with mutex-like check
       if (this.workers.clickGeneration.active) {
         throw new Error('Click generation worker is already running');
       }
-
-      // Merge with default config
-      const finalConfig = { ...this.defaultConfigs.clickGeneration, ...config };
       
-      // Validate URLs exist
-      const allUrls = urlShortener.getAllUrls();
-      if (allUrls.length === 0) {
-        throw new Error('No URLs available for click generation');
+      // Lock to prevent concurrent starts
+      if (this.workers.clickGeneration.starting) {
+        throw new Error('Click generation worker is already starting');
+      }
+      this.workers.clickGeneration.starting = true;
+      
+      try {
+        // Check system health before starting
+        if (!this.isSystemHealthy()) {
+          throw new Error('System health check failed - cannot start worker');
+        }
+
+        // Merge with default config
+        const finalConfig = { ...this.defaultConfigs.clickGeneration, ...config };
+        
+        // Enhanced validation
+        if (finalConfig.intervalMs < 1000) {
+          throw new Error('Interval must be at least 1000ms to prevent system overload');
+        }
+        
+        if (finalConfig.maxClicksPerInterval > 10) {
+          throw new Error('Maximum clicks per interval cannot exceed 10 for safety');
+        }
+        
+        // Validate URLs exist
+        const allUrls = urlShortener.getAllUrls();
+        if (allUrls.length === 0) {
+          throw new Error('No URLs available for click generation');
+        }
+
+        console.log(`[BACKGROUND] Starting continuous click generation worker with config:`, finalConfig);
+        
+        // Initialize worker state atomically
+        this.workers.clickGeneration.config = finalConfig;
+        this.workers.clickGeneration.stats = {
+          started: new Date().toISOString(),
+          totalGenerated: 0,
+          errors: 0,
+          lastGeneration: null
+        };
+
+        // Start the worker with error wrapping
+        this.workers.clickGeneration.interval = setInterval(async () => {
+          try {
+            await this.generateBackgroundClicks();
+          } catch (error) {
+            console.error('[BACKGROUND] Error in click generation interval:', error);
+            this.workers.clickGeneration.stats.errors++;
+            
+            // Auto-stop on too many errors
+            if (this.workers.clickGeneration.stats.errors >= this.safetyLimits.maxErrorsBeforeStop) {
+              console.error('[BACKGROUND] Stopping click worker due to excessive errors');
+              this.stopWorker('clickGeneration');
+            }
+          }
+        }, finalConfig.intervalMs);
+
+        this.workers.clickGeneration.active = true;
+        
+        // Start system monitoring if not already running
+        this.startSystemMonitoring();
+        
+        console.log(`[BACKGROUND] Click generation worker started successfully`);
+        
+        return {
+          success: true,
+          message: 'Continuous click generation started',
+          workerId: 'clickGeneration',
+          config: finalConfig,
+          stats: this.workers.clickGeneration.stats
+        };
+      } finally {
+        // Always unlock
+        this.workers.clickGeneration.starting = false;
       }
 
-      console.log(`[BACKGROUND] Starting continuous click generation worker with config:`, finalConfig);
-      
-      // Initialize worker state
-      this.workers.clickGeneration.config = finalConfig;
-      this.workers.clickGeneration.stats = {
-        started: new Date().toISOString(),
-        totalGenerated: 0,
-        errors: 0,
-        lastGeneration: null
-      };
-
-      // Start the worker
-      this.workers.clickGeneration.interval = setInterval(async () => {
-        await this.generateBackgroundClicks();
-      }, finalConfig.intervalMs);
-
-      this.workers.clickGeneration.active = true;
-      
-      // Start system monitoring if not already running
-      this.startSystemMonitoring();
-      
-      console.log(`[BACKGROUND] Click generation worker started successfully`);
-      
-      return {
-        success: true,
-        message: 'Continuous click generation started',
-        workerId: 'clickGeneration',
-        config: finalConfig,
-        stats: this.workers.clickGeneration.stats
-      };
-
     } catch (error) {
+      this.workers.clickGeneration.starting = false;
       console.error('[BACKGROUND] Failed to start click generation worker:', error);
       throw error;
     }

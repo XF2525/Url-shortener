@@ -97,19 +97,35 @@ class MainController {
   }
 
   /**
-   * Shorten URL API endpoint
+   * Shorten URL API endpoint with enhanced security
    */
   shortenUrl(req, res) {
     try {
-      const { originalUrl } = req.body;
+      // Input validation and sanitization
+      if (!req.body || typeof req.body !== 'object') {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request body'
+        });
+      }
 
-      // Validate input
+      let { originalUrl } = req.body;
+
+      // Sanitize input
+      if (typeof originalUrl === 'string') {
+        originalUrl = originalUrl.trim();
+        // Normalize URL to prevent bypass attempts
+        originalUrl = validator.normalizeUrl(originalUrl);
+      }
+
+      // Enhanced validation
       const errors = validator.validateInput({
         originalUrl: {
           required: true,
           type: 'string',
           format: 'url',
-          maxLength: 2000
+          maxLength: 2000,
+          minLength: 10
         }
       }, { originalUrl });
 
@@ -118,6 +134,14 @@ class MainController {
           success: false,
           error: 'Validation failed',
           details: errors
+        });
+      }
+
+      // Additional security checks
+      if (!originalUrl || originalUrl.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'URL cannot be empty after normalization'
         });
       }
 
@@ -148,37 +172,70 @@ class MainController {
   }
 
   /**
-   * Redirect to original URL
+   * Redirect to original URL with enhanced security and validation
    */
   redirectToOriginal(req, res) {
     try {
       const shortCode = req.params.shortCode;
 
-      if (!shortCode || shortCode.length !== 6) {
-        return res.status(404).send('Short URL not found');
+      // Enhanced input validation
+      if (!shortCode || typeof shortCode !== 'string') {
+        return res.status(404).send(this.getNotFoundPage('Invalid short code'));
       }
 
-      const result = urlShortener.getOriginalUrl(shortCode);
+      // Sanitize short code to prevent injection attacks
+      const sanitizedShortCode = validator.sanitizeInput(shortCode);
+      
+      // Validate short code format
+      if (sanitizedShortCode.length < 4 || sanitizedShortCode.length > 10) {
+        return res.status(404).send(this.getNotFoundPage('Invalid short code format'));
+      }
+
+      // Additional security check: only allow alphanumeric characters
+      if (!/^[a-zA-Z0-9]+$/.test(sanitizedShortCode)) {
+        return res.status(404).send(this.getNotFoundPage('Invalid characters in short code'));
+      }
+
+      const result = urlShortener.getOriginalUrl(sanitizedShortCode);
       
       if (result.success) {
-        // Record the click for analytics
-        urlShortener.recordClick(shortCode, req);
+        try {
+          // Record the click for analytics with error handling
+          urlShortener.recordClick(sanitizedShortCode, req);
+        } catch (analyticsError) {
+          // Log but don't fail the redirect
+          console.error('Analytics recording error:', analyticsError);
+        }
         
-        // Redirect to original URL
-        res.redirect(result.data.originalUrl);
+        // Validate redirect URL before redirecting
+        const originalUrl = result.data.originalUrl;
+        if (!validator.isValidUrl(originalUrl)) {
+          console.error('Invalid redirect URL detected:', originalUrl);
+          return res.status(400).send(this.getNotFoundPage('Invalid redirect URL'));
+        }
+        
+        // Safe redirect to original URL
+        res.redirect(originalUrl);
       } else {
-        res.status(404).send(`
-          <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
-            <h1>🔗 URL Not Found</h1>
-            <p>The short URL you're looking for doesn't exist.</p>
-            <a href="/" style="color: #3498db; text-decoration: none;">← Go back to homepage</a>
-          </div>
-        `);
+        res.status(404).send(this.getNotFoundPage('Short URL not found'));
       }
     } catch (error) {
       console.error('Redirect error:', error);
-      res.status(500).send('Internal server error');
+      res.status(500).send(this.getNotFoundPage('Internal server error'));
     }
+  }
+
+  /**
+   * Generate consistent 404 page
+   */
+  getNotFoundPage(message = 'URL not found') {
+    return `
+      <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <h1>🔗 ${validator.sanitizeInput(message)}</h1>
+        <p>The short URL you're looking for doesn't exist or has been removed.</p>
+        <a href="/" style="color: #3498db; text-decoration: none;">← Go back to homepage</a>
+      </div>
+    `;
   }
 
   /**
