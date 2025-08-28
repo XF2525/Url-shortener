@@ -76,10 +76,31 @@ app.get('/admin/api/automation/stats', requireAdvancedAuth, AdminController.getB
 app.post('/admin/api/automation/emergency-stop', requireAdvancedAuth, AdminController.emergencyStopBulkOperations);
 app.post('/admin/api/automation/cleanup', requireAdvancedAuth, AdminController.performSecurityCleanup);
 
-// NEW: Aura Features API Routes - Premium traffic generation with enhanced quality
+// ENHANCED: Comprehensive Aura Features API Routes - Many More Advanced Capabilities
 app.post('/admin/api/aura/generate-clicks', requireUltraSecureAuth, AdminController.generateBulkClicksWithAura);
 app.post('/admin/api/aura/generate-blog-views', requireUltraSecureAuth, AdminController.generateBlogViewsWithAura);
 app.get('/admin/api/aura/status', requireAdvancedAuth, AdminController.getAuraStatus);
+
+// NEW: Advanced Aura Intelligence API Routes
+app.post('/admin/api/aura/ai-optimized-traffic', requireUltraSecureAuth, AdminController.generateAIOptimizedTraffic);
+app.get('/admin/api/aura/advanced-analytics', requireAdvancedAuth, AdminController.getAdvancedAuraAnalytics);
+app.post('/admin/api/aura/human-behavior', requireAdvancedAuth, AdminController.generateHumanLikeBehavior);
+
+// NEW: Aura Geographic Intelligence API Routes
+app.get('/admin/api/aura/geographic-intelligence', requireAdvancedAuth, AdminController.getGeographicIntelligence);
+app.post('/admin/api/aura/security-enhanced-traffic', requireUltraSecureAuth, AdminController.generateSecurityEnhancedTraffic);
+
+// NEW: Aura Performance & Quality API Routes
+app.post('/admin/api/aura/optimize-performance', requireAdvancedAuth, AdminController.optimizeAuraPerformance);
+app.post('/admin/api/aura/quality-assurance', requireAdvancedAuth, AdminController.implementAuraQualityAssurance);
+
+// NEW: Aura Customization API Routes
+app.post('/admin/api/aura/custom-profile', requireAdvancedAuth, AdminController.generateCustomAuraProfile);
+app.post('/admin/api/aura/nextgen-features', requireUltraSecureAuth, AdminController.generateNextGenAuraFeatures);
+
+// NEW: Comprehensive Aura Dashboard & Testing API Routes
+app.get('/admin/api/aura/dashboard', requireAdvancedAuth, AdminController.getComprehensiveAuraDashboard);
+app.post('/admin/api/aura/test-all-features', requireAdvancedAuth, AdminController.testAllAuraFeatures);
 
 // NEW: Bulk Features Verification API Routes - Ensure IP/UA rotation is working
 app.get('/admin/api/bulk/verify', requireAdvancedAuth, AdminController.verifyBulkFeatures);
