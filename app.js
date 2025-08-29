@@ -98,6 +98,11 @@ app.post('/admin/api/aura/quality-assurance', requireAdvancedAuth, AdminControll
 app.post('/admin/api/aura/custom-profile', requireAdvancedAuth, AdminController.generateCustomAuraProfile);
 app.post('/admin/api/aura/nextgen-features', requireUltraSecureAuth, AdminController.generateNextGenAuraFeatures);
 
+// NEW: Aura Parallels Features API Routes
+app.post('/admin/api/aura/parallels-features', requireUltraSecureAuth, AdminController.generateParallelsAuraFeatures);
+app.get('/admin/api/aura/parallels-status', requireAdvancedAuth, AdminController.getParallelsStatus);
+app.post('/admin/api/aura/test-parallels', requireAdvancedAuth, AdminController.testParallelsFeatures);
+
 // NEW: Comprehensive Aura Dashboard & Testing API Routes
 app.get('/admin/api/aura/dashboard', requireAdvancedAuth, AdminController.getComprehensiveAuraDashboard);
 app.post('/admin/api/aura/test-all-features', requireAdvancedAuth, AdminController.testAllAuraFeatures);
