@@ -166,27 +166,35 @@ const validator = {
   /**
    * Enhanced URL normalization to prevent bypass attempts
    * @param {string} url - URL to normalize
-   * @returns {string} Normalized URL
+   * @returns {object} Result object with normalized URL and validation info
    */
   normalizeUrl(url) {
-    if (typeof url !== 'string') return url;
+    if (typeof url !== 'string') {
+      return { url: url, valid: false, error: 'URL must be a string' };
+    }
     
     try {
-      // Remove potentially dangerous protocols
+      // Check for potentially dangerous protocols
       const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:', 'ftp:'];
       const lowerUrl = url.toLowerCase().trim();
       
       for (const protocol of dangerousProtocols) {
         if (lowerUrl.startsWith(protocol)) {
-          return '';
+          return { url: '', valid: false, error: `Protocol '${protocol}' is not allowed for security reasons` };
         }
       }
       
       // Normalize using URL constructor
       const normalizedUrl = new URL(url);
-      return normalizedUrl.href;
+      
+      // Only allow http and https protocols
+      if (!['http:', 'https:'].includes(normalizedUrl.protocol)) {
+        return { url: '', valid: false, error: `Protocol '${normalizedUrl.protocol}' is not supported. Only HTTP and HTTPS are allowed` };
+      }
+      
+      return { url: normalizedUrl.href, valid: true, error: null };
     } catch (error) {
-      return '';
+      return { url: '', valid: false, error: 'Invalid URL format' };
     }
   },
 

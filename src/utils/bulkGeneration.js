@@ -1206,53 +1206,69 @@ class BulkGenerationUtils {
    * Create realistic analytics data with enhanced entropy
    */
   generateSecureAnalyticsData(operationType) {
-    const timestamp = new Date();
-    const sessionId = crypto.randomUUID();
-    
-    const data = {
-      timestamp: timestamp.toISOString(),
-      sessionId,
-      ip: this.generateSecureRandomIP(),
-      userAgent: this.getSecureRandomUserAgent(),
+    try {
+      const timestamp = new Date();
+      const sessionId = crypto.randomUUID();
       
-      // Enhanced behavioral simulation
-      behavior: {
-        // Realistic time spent (2-300 seconds)
-        sessionDuration: Math.floor(Math.random() * 298000) + 2000,
+      const data = {
+        timestamp: timestamp.toISOString(),
+        sessionId,
+        ip: this.generateSecureRandomIP(),
+        userAgent: this.getSecureRandomUserAgent(),
         
-        // Scroll depth (20-100%)
-        scrollDepth: Math.floor(Math.random() * 80) + 20,
+        // Enhanced behavioral simulation
+        behavior: {
+          // Realistic time spent (2-300 seconds)
+          sessionDuration: Math.floor(Math.random() * 298000) + 2000,
+          
+          // Scroll depth (20-100%)
+          scrollDepth: Math.floor(Math.random() * 80) + 20,
+          
+          // Page interactions
+          clickEvents: Math.floor(Math.random() * 5),
+          
+          // Realistic bounce rate simulation
+          bounced: Math.random() < 0.3,
+          
+          // Time patterns (prefer business hours)
+          timePattern: this.getRealisticTimePattern(timestamp)
+        },
         
-        // Page interactions
-        clickEvents: Math.floor(Math.random() * 5),
+        // Geographic simulation
+        geography: {
+          timezone: this.getRandomTimezone(),
+          region: this.getRandomRegion(),
+          language: this.getRandomLanguage()
+        },
         
-        // Realistic bounce rate simulation
-        bounced: Math.random() < 0.3,
+        // Referrer simulation with security
+        referrer: this.getSecureRandomReferrer(),
         
-        // Time patterns (prefer business hours)
-        timePattern: this.getRealisticTimePattern(timestamp)
-      },
-      
-      // Geographic simulation
-      geography: {
-        timezone: this.getRandomTimezone(),
-        region: this.getRandomRegion(),
-        language: this.getRandomLanguage()
-      },
-      
-      // Referrer simulation with security
-      referrer: this.getSecureRandomReferrer(),
-      
-      // Enhanced security markers
-      security: {
-        generated: true,
-        method: 'bulk_generation',
-        operationType,
+        // Enhanced security markers
+        security: {
+          generated: true,
+          method: 'bulk_generation',
+          operationType,
         entropy: crypto.randomBytes(16).toString('hex')
       }
     };
 
     return data;
+    
+    } catch (error) {
+      console.error('[BULK-GEN] Error generating analytics data:', error);
+      // Return fallback data in case of error
+      return {
+        timestamp: new Date().toISOString(),
+        sessionId: `fallback_${Date.now()}`,
+        ip: '127.0.0.1',
+        userAgent: 'Mozilla/5.0 (Fallback)',
+        behavior: { sessionDuration: 30000, scrollDepth: 50, clickEvents: 1, bounced: false, timePattern: 'unknown' },
+        geography: { timezone: 'UTC', region: 'Unknown', language: 'en' },
+        referrer: 'direct',
+        security: { generated: true, method: 'fallback', operationType: operationType || 'unknown', entropy: 'fallback' }
+      };
+    }
   }
 
   /**

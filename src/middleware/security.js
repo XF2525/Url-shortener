@@ -40,7 +40,19 @@ const rateLimitStore = new Map();
  */
 function rateLimit(windowMs = CONFIG.SECURITY.RATE_LIMIT_WINDOW, maxRequests = CONFIG.SECURITY.RATE_LIMIT_MAX) {
   return (req, res, next) => {
-    const clientId = req.ip || req.connection.remoteAddress || 'unknown';
+    // Improved client identification with fallback to random ID for unknown clients
+    let clientId = req.ip || req.connection.remoteAddress;
+    
+    if (!clientId || clientId === 'unknown') {
+      // Generate a session-based identifier for unknown IPs to prevent grouping all unknown IPs together
+      clientId = `unknown_${req.headers['user-agent'] || 'no-ua'}_${req.headers['x-forwarded-for'] || 'no-forward'}`;
+      
+      // If still not unique enough, add a random component (but this is less ideal)
+      if (clientId === 'unknown_no-ua_no-forward') {
+        clientId = `unknown_${Math.random().toString(36).substr(2, 9)}`;
+      }
+    }
+    
     const now = Date.now();
     const windowStart = now - windowMs;
     

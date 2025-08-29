@@ -1254,6 +1254,23 @@ class AdminController {
     try {
       const { workerId } = req.body;
       
+      // Input validation for workerId
+      if (workerId && typeof workerId !== 'string') {
+        return res.status(400).json({ 
+          error: 'Invalid workerId parameter',
+          details: ['workerId must be a string if provided']
+        });
+      }
+      
+      // Validate workerId against known worker types
+      const validWorkerIds = ['clickGeneration', 'viewGeneration'];
+      if (workerId && !validWorkerIds.includes(workerId)) {
+        return res.status(400).json({ 
+          error: 'Invalid workerId',
+          details: [`workerId must be one of: ${validWorkerIds.join(', ')}`]
+        });
+      }
+      
       console.log(`[BACKGROUND] Stopping background processes. WorkerId: ${workerId || 'all'}`);
       
       let results;
