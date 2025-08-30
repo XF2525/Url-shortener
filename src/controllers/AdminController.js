@@ -2410,6 +2410,258 @@ class AdminController {
       });
     }
   }
+
+  /**
+   * ====================================================================
+   * ADVANCED AURA ACTIVITY LOGGING ENDPOINTS
+   * Real-time access to generation activity logs and monitoring
+   * ====================================================================
+   */
+
+  /**
+   * Get recent generation activities
+   */
+  getRecentActivities(req, res) {
+    try {
+      const { 
+        limit = 100, 
+        category = null, 
+        severity = null, 
+        timeRange = '1h' 
+      } = req.query;
+
+      console.log(`[AURA-ACTIVITY] Retrieving recent activities - limit: ${limit}, category: ${category}, severity: ${severity}`);
+
+      const activities = bulkGeneration.getRecentActivities(
+        parseInt(limit), 
+        category, 
+        severity
+      );
+
+      // Filter by time range if specified
+      let filteredActivities = activities;
+      if (timeRange) {
+        const timeRangeMs = this.parseTimeRange(timeRange);
+        const cutoffTime = new Date(Date.now() - timeRangeMs);
+        filteredActivities = activities.filter(activity => 
+          new Date(activity.timestamp) >= cutoffTime
+        );
+      }
+
+      res.json({
+        success: true,
+        message: 'Recent activities retrieved successfully',
+        activities: filteredActivities,
+        totalActivities: filteredActivities.length,
+        filters: { limit, category, severity, timeRange },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-ACTIVITY] Failed to retrieve activities:', error);
+      res.status(500).json({
+        error: 'Failed to retrieve generation activities',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get activity statistics and metrics
+   */
+  getActivityStats(req, res) {
+    try {
+      console.log('[AURA-ACTIVITY] Retrieving activity statistics');
+
+      const stats = bulkGeneration.getActivityStats();
+      const auraStatus = bulkGeneration.getAuraStatus();
+
+      res.json({
+        success: true,
+        message: 'Activity statistics retrieved successfully',
+        stats,
+        auraStatus,
+        systemInfo: {
+          memoryUsage: process.memoryUsage(),
+          uptime: process.uptime(),
+          nodeVersion: process.version
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-ACTIVITY] Failed to retrieve activity stats:', error);
+      res.status(500).json({
+        error: 'Failed to retrieve activity statistics',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Get real-time activity stream
+   */
+  getActivityStream(req, res) {
+    try {
+      const { 
+        subscribe = false,
+        format = 'json' 
+      } = req.query;
+
+      console.log('[AURA-ACTIVITY] Setting up activity stream');
+
+      if (subscribe && subscribe !== 'false') {
+        // Set up Server-Sent Events for real-time streaming
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Cache-Control'
+        });
+
+        // Send initial connection confirmation
+        res.write(`data: ${JSON.stringify({
+          type: 'connection',
+          message: 'Activity stream connected',
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+
+        // Add listener for real-time activities
+        const removeListener = bulkGeneration.addRealtimeListener((activity) => {
+          res.write(`data: ${JSON.stringify({
+            type: 'activity',
+            activity,
+            timestamp: new Date().toISOString()
+          })}\n\n`);
+        });
+
+        // Handle client disconnect
+        req.on('close', () => {
+          console.log('[AURA-ACTIVITY] Client disconnected from activity stream');
+          removeListener();
+        });
+
+        // Keep connection alive with periodic heartbeat
+        const heartbeat = setInterval(() => {
+          res.write(`data: ${JSON.stringify({
+            type: 'heartbeat',
+            timestamp: new Date().toISOString()
+          })}\n\n`);
+        }, 30000); // Every 30 seconds
+
+        req.on('close', () => {
+          clearInterval(heartbeat);
+        });
+
+      } else {
+        // Return current activity snapshot
+        const recentActivities = bulkGeneration.getRecentActivities(50);
+        const stats = bulkGeneration.getActivityStats();
+
+        res.json({
+          success: true,
+          message: 'Activity stream snapshot retrieved',
+          snapshot: {
+            recentActivities,
+            stats,
+            streamInfo: {
+              realTimeAvailable: true,
+              subscribeUrl: `${req.protocol}://${req.get('host')}${req.path}?subscribe=true`
+            }
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+    } catch (error) {
+      console.error('[AURA-ACTIVITY] Failed to setup activity stream:', error);
+      res.status(500).json({
+        error: 'Failed to setup activity stream',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Clean up old activities
+   */
+  cleanupActivities(req, res) {
+    try {
+      const { maxAge = '7d' } = req.body;
+
+      console.log(`[AURA-ACTIVITY] Cleaning up activities older than ${maxAge}`);
+
+      const maxAgeMs = this.parseTimeRange(maxAge);
+      const removedCount = bulkGeneration.cleanupOldActivities(maxAgeMs);
+
+      res.json({
+        success: true,
+        message: 'Activity cleanup completed successfully',
+        removedCount,
+        maxAge,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('[AURA-ACTIVITY] Activity cleanup failed:', error);
+      res.status(500).json({
+        error: 'Activity cleanup failed',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Backup activities manually
+   */
+  backupActivities(req, res) {
+    try {
+      console.log('[AURA-ACTIVITY] Starting manual activity backup');
+
+      bulkGeneration.backupActivities().then(() => {
+        res.json({
+          success: true,
+          message: 'Activity backup completed successfully',
+          timestamp: new Date().toISOString()
+        });
+      }).catch(error => {
+        console.error('[AURA-ACTIVITY] Backup failed:', error);
+        res.status(500).json({
+          error: 'Activity backup failed',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+      });
+
+    } catch (error) {
+      console.error('[AURA-ACTIVITY] Backup initialization failed:', error);
+      res.status(500).json({
+        error: 'Failed to initialize activity backup',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  /**
+   * Helper method to parse time ranges (e.g., '1h', '24h', '7d')
+   */
+  parseTimeRange(timeRange) {
+    const units = {
+      's': 1000,
+      'm': 60 * 1000,
+      'h': 60 * 60 * 1000,
+      'd': 24 * 60 * 60 * 1000,
+      'w': 7 * 24 * 60 * 60 * 1000
+    };
+
+    const match = timeRange.match(/^(\d+)([smhdw])$/);
+    if (!match) {
+      throw new Error(`Invalid time range format: ${timeRange}. Use format like '1h', '24h', '7d'`);
+    }
+
+    const [, value, unit] = match;
+    return parseInt(value) * units[unit];
+  }
 }
 
 // Create and export properly bound instance
@@ -2470,7 +2722,14 @@ const boundController = {
   // Bulk features verification methods
   verifyBulkFeatures: adminController.verifyBulkFeatures.bind(adminController),
   testIPRotation: adminController.testIPRotation.bind(adminController),
-  testUserAgentRotation: adminController.testUserAgentRotation.bind(adminController)
+  testUserAgentRotation: adminController.testUserAgentRotation.bind(adminController),
+  
+  // NEW: Advanced Aura Activity Logging methods
+  getRecentActivities: adminController.getRecentActivities.bind(adminController),
+  getActivityStats: adminController.getActivityStats.bind(adminController),
+  getActivityStream: adminController.getActivityStream.bind(adminController),
+  cleanupActivities: adminController.cleanupActivities.bind(adminController),
+  backupActivities: adminController.backupActivities.bind(adminController)
 };
 
 module.exports = boundController;
