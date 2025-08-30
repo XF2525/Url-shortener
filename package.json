@@ -28,7 +28,17 @@
     "release:prepare": "npm run ci:build && npm run ci:security",
     "release:docker": "docker build -t url-shortener:latest .",
     "release:tag": "git tag -a v$(node -p 'require(\"./package.json\").version') -m 'Release v$(node -p 'require(\"./package.json\").version')'",
-    "release:publish": "npm run release:prepare && npm run release:docker && npm run release:tag"
+    "release:publish": "npm run release:prepare && npm run release:docker && npm run release:tag",
+    "ts:build": "tsc",
+    "ts:dev": "tsc && NODE_ENV=development node dist/app.js",
+    "ts:prod": "tsc && NODE_ENV=production node dist/app.js",
+    "ts:watch": "tsc --watch",
+    "ts:lint": "tsc --noEmit && echo 'TypeScript check passed'",
+    "ts:test": "npm run ts:build && node dist/test.js",
+    "ts:start": "npm run ts:build && node dist/app.js",
+    "ts:validate": "npm run ts:lint && npm run ts:test",
+    "ts:demo": "npm run ts:build && node -e 'console.log(\"🚀 TypeScript demo - Check /ts endpoint after starting server\")'",
+    "demo:typescript": "node demo-typescript-features.js"
   },
   "keywords": [
     "url-shortener",
@@ -44,10 +54,14 @@
     "npm": ">=6.0.0"
   },
   "dependencies": {
-    "express": "^5.1.0",
-    "escape-html": "^1.0.3"
+    "escape-html": "^1.0.3",
+    "express": "^5.1.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/XF2525/Url-shortener.git"
