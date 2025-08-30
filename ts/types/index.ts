@@ -1,6 +1,93 @@
 /**
  * Core type definitions for URL Shortener with Advanced Aura Features
+ * Enhanced with Background Workers for Parallel Real-Time Processing
  */
+
+// ===== BACKGROUND WORKERS TYPES =====
+
+export type WorkerType = 
+  | 'blogViewsGeneration'
+  | 'superiorPowersAura'
+  | 'quantumHybrid'
+  | 'cosmicEnhanced'
+  | 'parallelProcessing';
+
+export interface BackgroundWorkerConfig {
+  intervalMs: number;
+  itemsPerInterval: number;
+  maxItemsPerInterval: number;
+  enableRandomDelay: boolean;
+  delayVariation?: number;
+  respectRateLimits: boolean;
+  enableQuantumFeatures?: boolean;
+  enableCosmicResonance?: boolean;
+  auraQualityTarget?: number;
+  parallelProcessing?: boolean;
+  persistentExecution?: boolean;
+}
+
+export interface BackgroundWorkerStats {
+  started: string | null;
+  totalGenerated: number;
+  errors: number;
+  lastGeneration: string | null;
+  runtime: number;
+}
+
+export interface BackgroundWorkerState {
+  active: boolean;
+  starting: boolean;
+  interval: NodeJS.Timeout | null;
+  config: BackgroundWorkerConfig | null;
+  stats: BackgroundWorkerStats;
+}
+
+export interface BackgroundWorkerResult {
+  success: boolean;
+  message: string;
+  workerId: WorkerType;
+  config?: BackgroundWorkerConfig;
+  stats?: BackgroundWorkerStats;
+  finalStats?: BackgroundWorkerStats;
+}
+
+export interface SystemHealthStatus {
+  memoryMonitorInterval: NodeJS.Timeout | null;
+  lastMemoryCheck: any;
+  highMemoryWarnings: number;
+}
+
+export interface BackgroundWorkerStatusResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  version: string;
+  data: {
+    timestamp: string;
+    systemHealth: any;
+    totalActiveWorkers: number;
+    workers: {
+      [key in WorkerType]: {
+        active: boolean;
+        config: BackgroundWorkerConfig | null;
+        stats: BackgroundWorkerStats;
+        runtime: number;
+        parallel: boolean;
+        persistent: boolean;
+      };
+    };
+  };
+}
+
+export interface StartBackgroundWorkerRequest {
+  workerType: WorkerType;
+  config?: Partial<BackgroundWorkerConfig>;
+}
+
+export interface StopBackgroundWorkerRequest {
+  workerType?: WorkerType;
+  stopAll?: boolean;
+}
 
 // Core URL shortener types
 export interface ShortUrl {

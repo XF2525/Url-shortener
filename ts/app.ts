@@ -301,6 +301,12 @@ app.get('/ts', (req: Request, res: Response) => {
                 <div class="endpoint">POST /ts/api/superior-powers/generate - Generate Superior Powers aura</div>
                 <div class="endpoint">POST /ts/api/quantum-hybrid/generate - Generate quantum hybrid content</div>
                 <div class="endpoint">POST /ts/api/cosmic-enhanced/generate - Generate cosmic enhanced content</div>
+                
+                <h3 style="margin-top: 30px; color: #FFD700;">🔄 Background Workers (Parallel Real-Time)</h3>
+                <div class="endpoint">POST /ts/api/background-workers/start - Start parallel background worker</div>
+                <div class="endpoint">POST /ts/api/background-workers/stop - Stop background worker(s)</div>
+                <div class="endpoint">GET  /ts/api/background-workers/status - Background workers status</div>
+                <div class="endpoint">POST /ts/api/background-workers/configure - Configure background worker</div>
             </div>
             
             <div style="text-align: center; margin-top: 40px; opacity: 0.8;">
@@ -337,6 +343,23 @@ app.post('/ts/api/cosmic-enhanced/generate', (req: Request, res: Response) => {
   advancedController.generateCosmicEnhancedContent(req, res);
 });
 
+// Background Workers API Routes for Parallel Real-Time Processing
+app.post('/ts/api/background-workers/start', (req: Request, res: Response) => {
+  advancedController.startBackgroundWorker(req, res);
+});
+
+app.post('/ts/api/background-workers/stop', (req: Request, res: Response) => {
+  advancedController.stopBackgroundWorker(req, res);
+});
+
+app.get('/ts/api/background-workers/status', (req: Request, res: Response) => {
+  advancedController.getBackgroundWorkersStatus(req, res);
+});
+
+app.post('/ts/api/background-workers/configure', (req: Request, res: Response) => {
+  advancedController.configureBackgroundWorker(req, res);
+});
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
@@ -351,7 +374,11 @@ app.use((req: Request, res: Response) => {
       'POST /ts/api/blog-views/generate - Blog views generation',
       'POST /ts/api/superior-powers/generate - Superior Powers aura',
       'POST /ts/api/quantum-hybrid/generate - Quantum hybrid content',
-      'POST /ts/api/cosmic-enhanced/generate - Cosmic enhanced content'
+      'POST /ts/api/cosmic-enhanced/generate - Cosmic enhanced content',
+      'POST /ts/api/background-workers/start - Start parallel background worker',
+      'POST /ts/api/background-workers/stop - Stop background worker(s)',
+      'GET /ts/api/background-workers/status - Background workers status',
+      'POST /ts/api/background-workers/configure - Configure background worker'
     ]
   });
 });
@@ -392,6 +419,12 @@ app.listen(PORT, () => {
   console.log('   POST /ts/api/superior-powers/generate - Superior Powers aura');
   console.log('   POST /ts/api/quantum-hybrid/generate - Quantum hybrid content');
   console.log('   POST /ts/api/cosmic-enhanced/generate - Cosmic enhanced content');
+  console.log('');
+  console.log('🔄 Background Workers (Parallel Real-Time):');
+  console.log('   POST /ts/api/background-workers/start - Start parallel background worker');
+  console.log('   POST /ts/api/background-workers/stop - Stop background worker(s)');
+  console.log('   GET  /ts/api/background-workers/status - Background workers status');
+  console.log('   POST /ts/api/background-workers/configure - Configure background worker');
   console.log('');
   console.log('🌟 TypeScript system fully operational with quantum enhancement! 🌟');
   console.log('');

@@ -10,12 +10,17 @@ import {
   AuraEnhancedData, 
   BlogViewConfig,
   SuperiorPowersConfig,
-  ExperimentalFeatures
+  ExperimentalFeatures,
+  WorkerType, 
+  StartBackgroundWorkerRequest, 
+  StopBackgroundWorkerRequest,
+  BackgroundWorkerConfig
 } from '../types';
 import { CONFIG } from '../config/constants';
 import BlogViewsGenerationEngine from '../utils/blogViewsGeneration';
 import SuperiorPowersEngine from '../utils/superiorPowers';
 import ExperimentalFeaturesEngine from '../experimental/advancedFeatures';
+import { typeScriptBackgroundWorkerManager } from '../utils/backgroundWorkers';
 
 class AdvancedTypeScriptController {
   private blogViewsEngine: BlogViewsGenerationEngine;
@@ -707,6 +712,202 @@ class AdvancedTypeScriptController {
 
   private calculatePlanetaryBoost(): number {
     return 1.0 + Math.random() * 0.15; // 100-115%
+  }
+
+  /**
+   * Start parallel background worker
+   */
+  async startBackgroundWorker(req: Request, res: Response): Promise<void> {
+    try {
+      const { workerType, config = {} }: StartBackgroundWorkerRequest = req.body;
+
+      if (!workerType) {
+        res.status(400).json({
+          success: false,
+          error: 'Worker type is required',
+          message: 'Please specify a valid worker type',
+          timestamp: new Date(),
+          version: CONFIG.VERSION,
+          availableWorkers: [
+            'blogViewsGeneration',
+            'superiorPowersAura', 
+            'quantumHybrid',
+            'cosmicEnhanced',
+            'parallelProcessing'
+          ]
+        });
+        return;
+      }
+
+      console.log(`[TS-CONTROLLER] Starting ${workerType} background worker with parallel processing`);
+
+      const result = await typeScriptBackgroundWorkerManager.startBackgroundWorker(
+        workerType as WorkerType, 
+        config
+      );
+
+      res.json({
+        success: true,
+        message: `Parallel background ${workerType} worker started successfully`,
+        data: result,
+        timestamp: new Date(),
+        version: CONFIG.VERSION,
+        features: {
+          parallelProcessing: true,
+          persistentExecution: true,
+          realTimeGeneration: true,
+          backgroundExecution: true
+        }
+      });
+
+    } catch (error) {
+      console.error('[TS-CONTROLLER] Error starting background worker:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to start background worker',
+        message: 'Unable to start parallel background worker',
+        timestamp: new Date(),
+        version: CONFIG.VERSION
+      });
+    }
+  }
+
+  /**
+   * Stop background worker(s)
+   */
+  async stopBackgroundWorker(req: Request, res: Response): Promise<void> {
+    try {
+      const { workerType, stopAll = false }: StopBackgroundWorkerRequest = req.body;
+
+      console.log(`[TS-CONTROLLER] Stopping background worker(s) - stopAll: ${stopAll}, workerType: ${workerType}`);
+
+      let result;
+      if (stopAll) {
+        result = typeScriptBackgroundWorkerManager.stopAllBackgroundWorkers();
+      } else if (workerType) {
+        result = typeScriptBackgroundWorkerManager.stopBackgroundWorker(workerType as WorkerType);
+      } else {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid request',
+          message: 'Please specify either workerType or set stopAll to true',
+          timestamp: new Date(),
+          version: CONFIG.VERSION
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: stopAll ? 'All background workers stopped' : `${workerType} worker stopped`,
+        data: result,
+        timestamp: new Date(),
+        version: CONFIG.VERSION
+      });
+
+    } catch (error) {
+      console.error('[TS-CONTROLLER] Error stopping background worker:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to stop background worker',
+        message: 'Unable to stop background worker',
+        timestamp: new Date(),
+        version: CONFIG.VERSION
+      });
+    }
+  }
+
+  /**
+   * Get background workers status
+   */
+  async getBackgroundWorkersStatus(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('[TS-CONTROLLER] Getting background workers status');
+
+      const status = typeScriptBackgroundWorkerManager.getBackgroundWorkersStatus();
+
+      res.json({
+        success: true,
+        message: 'Background workers status retrieved successfully',
+        data: status,
+        timestamp: new Date(),
+        version: CONFIG.VERSION,
+        features: {
+          parallelProcessing: true,
+          persistentExecution: true,
+          realTimeMonitoring: true,
+          systemHealthTracking: true
+        }
+      });
+
+    } catch (error) {
+      console.error('[TS-CONTROLLER] Error getting background workers status:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get status',
+        message: 'Unable to retrieve background workers status',
+        timestamp: new Date(),
+        version: CONFIG.VERSION
+      });
+    }
+  }
+
+  /**
+   * Configure background worker
+   */
+  async configureBackgroundWorker(req: Request, res: Response): Promise<void> {
+    try {
+      const { workerType, config }: { workerType: WorkerType; config: Partial<BackgroundWorkerConfig> } = req.body;
+
+      if (!workerType || !config) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid request',
+          message: 'Both workerType and config are required',
+          timestamp: new Date(),
+          version: CONFIG.VERSION
+        });
+        return;
+      }
+
+      console.log(`[TS-CONTROLLER] Configuring ${workerType} background worker`);
+
+      // First stop the worker if it's running
+      typeScriptBackgroundWorkerManager.stopBackgroundWorker(workerType);
+      
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Start with new configuration
+      const result = await typeScriptBackgroundWorkerManager.startBackgroundWorker(workerType, config);
+
+      res.json({
+        success: true,
+        message: `${workerType} worker reconfigured and restarted successfully`,
+        data: result,
+        timestamp: new Date(),
+        version: CONFIG.VERSION,
+        features: {
+          dynamicReconfiguration: true,
+          parallelProcessing: true,
+          persistentExecution: true
+        }
+      });
+
+    } catch (error) {
+      console.error('[TS-CONTROLLER] Error configuring background worker:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to configure worker',
+        message: 'Unable to configure background worker',
+        timestamp: new Date(),
+        version: CONFIG.VERSION
+      });
+    }
   }
 }
 
