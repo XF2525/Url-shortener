@@ -56,10 +56,28 @@ const cacheUtils = {
       // Cleanup old entries if cache gets too large
       if (cache.size > 100) {
         const now = Date.now();
-        for (const [cacheKey, item] of cache.entries()) {
+        const entriesArray = Array.from(cache.entries());
+        
+        // Sort by timestamp (oldest first) and remove expired entries
+        entriesArray.sort((a, b) => a[1].timestamp - b[1].timestamp);
+        
+        let deletedCount = 0;
+        for (const [cacheKey, item] of entriesArray) {
           if (now - item.timestamp > CONFIG.CACHE_DURATIONS.STATIC_CONTENT * 2) {
             cache.delete(cacheKey);
+            deletedCount++;
           }
+        }
+        
+        // If still too large after removing expired entries, remove oldest entries
+        if (cache.size > 100) {
+          const remainingEntries = Array.from(cache.entries())
+            .sort((a, b) => a[1].timestamp - b[1].timestamp);
+          
+          const toDelete = remainingEntries.slice(0, cache.size - 80); // Leave room for 20 more entries
+          toDelete.forEach(([key]) => cache.delete(key));
+          
+          console.log(`[CACHE] Cleaned up ${deletedCount + toDelete.length} entries from ${category} cache`);
         }
       }
     } else if (category === 'analytics') {

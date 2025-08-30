@@ -111,19 +111,29 @@ class MainController {
 
       let { originalUrl } = req.body;
 
-      // Sanitize input
+      // Sanitize and normalize input
       if (typeof originalUrl === 'string') {
         originalUrl = originalUrl.trim();
-        // Normalize URL to prevent bypass attempts
-        originalUrl = validator.normalizeUrl(originalUrl);
+        
+        // Normalize URL to prevent bypass attempts and get validation result
+        const normalizationResult = validator.normalizeUrl(originalUrl);
+        
+        if (!normalizationResult.valid) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid URL',
+            details: [normalizationResult.error]
+          });
+        }
+        
+        originalUrl = normalizationResult.url;
       }
 
-      // Enhanced validation
+      // Enhanced validation (skip URL format validation since we already normalized)
       const errors = validator.validateInput({
         originalUrl: {
           required: true,
           type: 'string',
-          format: 'url',
           maxLength: 2000,
           minLength: 10
         }
@@ -134,14 +144,6 @@ class MainController {
           success: false,
           error: 'Validation failed',
           details: errors
-        });
-      }
-
-      // Additional security checks
-      if (!originalUrl || originalUrl.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'URL cannot be empty after normalization'
         });
       }
 

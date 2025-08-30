@@ -36,7 +36,8 @@ const templateUtils = {
      * @returns {string} Badge HTML
      */
     experimentalBadge(text = 'EXPERIMENTAL') {
-      return `<span class="experimental-badge">${text}</span>`;
+      const escapeHtml = require('../utils/validation').sanitizeInput;
+      return `<span class="experimental-badge">${escapeHtml(text)}</span>`;
     },
 
     /**
@@ -45,10 +46,11 @@ const templateUtils = {
      * @returns {string} Spinner HTML
      */
     loadingSpinner(text = 'Loading...') {
+      const escapeHtml = require('../utils/validation').sanitizeInput;
       return `
         <div class="loading-spinner">
           <div class="spinner"></div>
-          <p>${text}</p>
+          <p>${escapeHtml(text)}</p>
         </div>
       `;
     },
@@ -56,19 +58,22 @@ const templateUtils = {
     /**
      * Standard button component
      * @param {string} text - Button text
-     * @param {string} onclick - Click handler
+     * @param {string} onclick - Click handler (must be safe/validated)
      * @param {string} className - CSS class
      * @param {boolean} disabled - Whether button is disabled
      * @returns {string} Button HTML
      */
     button(text, onclick, className = 'btn-primary', disabled = false) {
+      const escapeHtml = require('../utils/validation').sanitizeInput;
+      // Note: onclick handlers should be validated/sanitized by the caller
+      // as they contain JavaScript code that needs to be functional
       return `
         <button 
-          class="btn ${className}" 
+          class="btn ${escapeHtml(className)}" 
           onclick="${onclick}"
           ${disabled ? 'disabled' : ''}
         >
-          ${text}
+          ${escapeHtml(text)}
         </button>
       `;
     },
@@ -76,16 +81,17 @@ const templateUtils = {
     /**
      * Form group component
      * @param {string} label - Field label
-     * @param {string} input - Input HTML
+     * @param {string} input - Input HTML (should already be safe)
      * @param {string} helpText - Help text
      * @returns {string} Form group HTML
      */
     formGroup(label, input, helpText = '') {
+      const escapeHtml = require('../utils/validation').sanitizeInput;
       return `
         <div class="form-group">
-          <label>${label}</label>
+          <label>${escapeHtml(label)}</label>
           ${input}
-          ${helpText ? `<small class="help-text">${helpText}</small>` : ''}
+          ${helpText ? `<small class="help-text">${escapeHtml(helpText)}</small>` : ''}
         </div>
       `;
     }
