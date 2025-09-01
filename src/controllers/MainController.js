@@ -3,6 +3,7 @@
  */
 
 const urlShortener = require('../models/UrlShortener');
+const BlogPost = require('../models/Blog');
 const templateUtils = require('../views/templates');
 const validator = require('../utils/validation');
 
@@ -92,6 +93,72 @@ class MainController {
       res.send(html);
     } catch (error) {
       console.error('Homepage error:', error);
+      res.status(500).send('Internal server error');
+    }
+  }
+
+  /**
+   * Blog page route
+   */
+  async getBlogPage(req, res) {
+    try {
+      const posts = await BlogPost.findAll();
+      const sortedPosts = posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      let postsHtml = '';
+      if (sortedPosts.length > 0) {
+        postsHtml = sortedPosts.map(post => `
+          <div class="card">
+            <h2><a href="/blog/${post.id}">${post.title}</a></h2>
+            <p><em>By ${post.author} on ${new Date(post.createdAt).toLocaleDateString()}</em></p>
+            <p>${post.content.substring(0, 200)}...</p>
+            <a href="/blog/${post.id}" class="btn">Read More</a>
+          </div>
+        `).join('');
+      } else {
+        postsHtml = '<p>No blog posts yet. Check back soon!</p>';
+      }
+
+      const content = `
+        <div class="container">
+          <h1>Blog</h1>
+          ${postsHtml}
+        </div>
+      `;
+
+      const html = templateUtils.generateHTML('Blog', content, '', '', true, 'blog');
+      res.send(html);
+    } catch (error) {
+      console.error('Blog page error:', error);
+      res.status(500).send('Internal server error');
+    }
+  }
+
+  /**
+   * Single blog post page route
+   */
+  async getBlogPostPage(req, res) {
+    try {
+      const post = await BlogPost.findById(req.params.id);
+      if (!post) {
+        return res.status(404).send(this.getNotFoundPage('Blog post not found'));
+      }
+
+      const content = `
+        <div class="container">
+          <div class="card">
+            <h1>${post.title}</h1>
+            <p><em>By ${post.author} on ${new Date(post.createdAt).toLocaleDateString()}</em></p>
+            <div>${post.content.replace(/\n/g, '<br>')}</div>
+          </div>
+          <a href="/blog" class="btn" style="margin-top: 20px;">Back to Blog</a>
+        </div>
+      `;
+
+      const html = templateUtils.generateHTML(post.title, content, '', '', true, 'blog');
+      res.send(html);
+    } catch (error) {
+      console.error('Blog post page error:', error);
       res.status(500).send('Internal server error');
     }
   }
@@ -272,6 +339,73 @@ class MainController {
       });
     }
   }
+
+  /**
+   * Get memory statistics API endpoint
+   */
+  getMemoryStats(req, res) {
+    try {
+      const memoryStats = urlShortener.getMemoryStats();
+      
+      res.json({
+        success: true,
+        data: memoryStats,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Memory stats error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve memory statistics'
+      });
+    }
+  }
+
+  /**
+   * Export data API endpoint
+   */
+  exportData(req, res) {
+    try {
+      const exportedData = urlShortener.exportData();
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="url-shortener-export-${Date.now()}.json"`);
+      res.json(exportedData);
+    } catch (error) {
+      console.error('Export data error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to export data'
+      });
+    }
+  }
+
+  /**
+   * Create manual backup API endpoint
+   */
+  createBackup(req, res) {
+    try {
+      if (urlShortener.enableBackup) {
+        urlShortener.createBackup();
+        res.json({
+          success: true,
+          message: 'Backup created successfully',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.json({
+          success: false,
+          error: 'Backup system is disabled'
+        });
+      }
+    } catch (error) {
+      console.error('Create backup error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create backup'
+      });
+    }
+  }
 }
 
 // Create and export properly bound instance
@@ -280,9 +414,14 @@ const mainController = new MainController();
 // Bind all methods to maintain 'this' context
 const boundController = {
   getHomepage: mainController.getHomepage.bind(mainController),
+  getBlogPage: mainController.getBlogPage.bind(mainController),
+  getBlogPostPage: mainController.getBlogPostPage.bind(mainController),
   shortenUrl: mainController.shortenUrl.bind(mainController),
   redirectToOriginal: mainController.redirectToOriginal.bind(mainController),
-  healthCheck: mainController.healthCheck.bind(mainController)
+  healthCheck: mainController.healthCheck.bind(mainController),
+  getMemoryStats: mainController.getMemoryStats.bind(mainController),
+  exportData: mainController.exportData.bind(mainController),
+  createBackup: mainController.createBackup.bind(mainController)
 };
 
 module.exports = boundController;

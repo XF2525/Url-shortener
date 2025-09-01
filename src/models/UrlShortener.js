@@ -7,7 +7,7 @@ const validator = require('../utils/validation');
 
 class UrlShortenerModel {
   constructor() {
-    // In-memory storage (URLs are lost when server restarts)
+    // In-memory storage (optimized for persistence)
     this.urlDatabase = new Map();
     this.analytics = new Map();
     
@@ -15,10 +15,30 @@ class UrlShortenerModel {
     this.urlToShortCode = new Map();
     
     // Memory management
-    this.maxUrlsInMemory = CONFIG.MAX_URLS_IN_MEMORY || 10000;
-    this.maxAnalyticsHistoryPerUrl = CONFIG.MAX_ANALYTICS_HISTORY || 1000;
+    this.maxUrlsInMemory = CONFIG.MAX_URLS_IN_MEMORY || 50000;
+    this.maxAnalyticsHistoryPerUrl = CONFIG.MAX_ANALYTICS_HISTORY || 2000;
     this.lastCleanup = Date.now();
-    this.cleanupInterval = CONFIG.CLEANUP_INTERVAL || 3600000; // 1 hour
+    this.cleanupInterval = CONFIG.CLEANUP_INTERVAL || 1800000; // 30 minutes
+    
+    // Data persistence for in-memory storage
+    this.enableBackup = CONFIG.MEMORY_OPTIMIZATION?.ENABLE_AUTO_BACKUP || false;
+    this.backupInterval = CONFIG.MEMORY_OPTIMIZATION?.BACKUP_INTERVAL || 300000; // 5 minutes
+    this.backupPath = CONFIG.MEMORY_OPTIMIZATION?.BACKUP_FILE_PATH || './data/backup.json';
+    this.lastBackup = Date.now();
+    
+    // Initialize backup system
+    if (this.enableBackup) {
+      this.initializeBackupSystem();
+      this.loadFromBackup();
+    }
+    
+    // Performance metrics
+    this.performanceMetrics = {
+      totalOperations: 0,
+      avgResponseTime: 0,
+      memoryUsage: 0,
+      lastMetricsUpdate: Date.now()
+    };
   }
 
   /**
@@ -555,8 +575,192 @@ class UrlShortenerModel {
         maxAnalyticsHistory: this.maxAnalyticsHistoryPerUrl
       },
       lastCleanup: new Date(this.lastCleanup).toISOString(),
-      nextCleanup: new Date(this.lastCleanup + this.cleanupInterval).toISOString()
+      nextCleanup: new Date(this.lastCleanup + this.cleanupInterval).toISOString(),
+      backupEnabled: this.enableBackup,
+      lastBackup: this.enableBackup ? new Date(this.lastBackup).toISOString() : null,
+      performanceMetrics: this.performanceMetrics
     };
+  }
+
+  /**
+   * Initialize backup system for data persistence
+   */
+  initializeBackupSystem() {
+    const fs = require('fs');
+    const path = require('path');
+    
+    try {
+      // Create data directory if it doesn't exist
+      const dataDir = path.dirname(this.backupPath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`[BACKUP] Created data directory: ${dataDir}`);
+      }
+      
+      // Set up periodic backup
+      setInterval(() => {
+        this.createBackup();
+      }, this.backupInterval);
+      
+      console.log(`[BACKUP] Backup system initialized. Interval: ${this.backupInterval}ms`);
+    } catch (error) {
+      console.error('[BACKUP] Failed to initialize backup system:', error);
+      this.enableBackup = false;
+    }
+  }
+
+  /**
+   * Create a backup of current in-memory data
+   */
+  createBackup() {
+    if (!this.enableBackup) return;
+    
+    const fs = require('fs');
+    const path = require('path');
+    
+    try {
+      const now = Date.now();
+      
+      // Skip if backup was done recently
+      if (now - this.lastBackup < this.backupInterval) {
+        return;
+      }
+      
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        urlDatabase: Array.from(this.urlDatabase.entries()),
+        analytics: Array.from(this.analytics.entries()),
+        urlToShortCode: Array.from(this.urlToShortCode.entries()),
+        performanceMetrics: this.performanceMetrics,
+        version: '1.0'
+      };
+      
+      // Create timestamped backup filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupDir = path.dirname(this.backupPath);
+      const backupFile = path.join(backupDir, `backup-${timestamp}.json`);
+      
+      // Write backup file
+      fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
+      
+      // Update current backup link
+      if (fs.existsSync(this.backupPath)) {
+        fs.unlinkSync(this.backupPath);
+      }
+      fs.symlinkSync(path.basename(backupFile), this.backupPath);
+      
+      this.lastBackup = now;
+      
+      // Clean old backups
+      this.cleanOldBackups(backupDir);
+      
+      console.log(`[BACKUP] Created backup: ${backupFile} (${this.urlDatabase.size} URLs, ${this.analytics.size} analytics)`);
+      
+    } catch (error) {
+      console.error('[BACKUP] Failed to create backup:', error);
+    }
+  }
+
+  /**
+   * Load data from backup file
+   */
+  loadFromBackup() {
+    if (!this.enableBackup) return;
+    
+    const fs = require('fs');
+    
+    try {
+      if (!fs.existsSync(this.backupPath)) {
+        console.log('[BACKUP] No backup file found, starting with empty database');
+        return;
+      }
+      
+      const backupData = JSON.parse(fs.readFileSync(this.backupPath, 'utf8'));
+      
+      // Restore URL database
+      this.urlDatabase = new Map(backupData.urlDatabase || []);
+      this.analytics = new Map(backupData.analytics || []);
+      this.urlToShortCode = new Map(backupData.urlToShortCode || []);
+      
+      // Restore performance metrics
+      if (backupData.performanceMetrics) {
+        this.performanceMetrics = { ...this.performanceMetrics, ...backupData.performanceMetrics };
+      }
+      
+      console.log(`[BACKUP] Restored from backup: ${this.urlDatabase.size} URLs, ${this.analytics.size} analytics (${backupData.timestamp})`);
+      
+    } catch (error) {
+      console.error('[BACKUP] Failed to load from backup:', error);
+      console.log('[BACKUP] Starting with empty database');
+    }
+  }
+
+  /**
+   * Clean old backup files
+   */
+  cleanOldBackups(backupDir) {
+    const fs = require('fs');
+    const path = require('path');
+    
+    try {
+      const files = fs.readdirSync(backupDir)
+        .filter(file => file.startsWith('backup-') && file.endsWith('.json'))
+        .map(file => ({
+          name: file,
+          path: path.join(backupDir, file),
+          mtime: fs.statSync(path.join(backupDir, file)).mtime
+        }))
+        .sort((a, b) => b.mtime - a.mtime);
+      
+      const maxBackups = CONFIG.MEMORY_OPTIMIZATION?.MAX_BACKUP_FILES || 10;
+      
+      if (files.length > maxBackups) {
+        const filesToDelete = files.slice(maxBackups);
+        filesToDelete.forEach(file => {
+          fs.unlinkSync(file.path);
+          console.log(`[BACKUP] Deleted old backup: ${file.name}`);
+        });
+      }
+    } catch (error) {
+      console.error('[BACKUP] Failed to clean old backups:', error);
+    }
+  }
+
+  /**
+   * Export current data (for manual backup)
+   */
+  exportData() {
+    return {
+      timestamp: new Date().toISOString(),
+      urlDatabase: Array.from(this.urlDatabase.entries()),
+      analytics: Array.from(this.analytics.entries()),
+      urlToShortCode: Array.from(this.urlToShortCode.entries()),
+      stats: this.getSystemStats(),
+      memoryStats: this.getMemoryStats()
+    };
+  }
+
+  /**
+   * Import data (for manual restore)
+   */
+  importData(data) {
+    try {
+      if (data.urlDatabase) {
+        this.urlDatabase = new Map(data.urlDatabase);
+      }
+      if (data.analytics) {
+        this.analytics = new Map(data.analytics);
+      }
+      if (data.urlToShortCode) {
+        this.urlToShortCode = new Map(data.urlToShortCode);
+      }
+      
+      console.log(`[IMPORT] Imported ${this.urlDatabase.size} URLs and ${this.analytics.size} analytics records`);
+      return { success: true, message: 'Data imported successfully' };
+    } catch (error) {
+      console.error('[IMPORT] Failed to import data:', error);
+      return { success: false, error: error.message };
+    }
   }
 }
 

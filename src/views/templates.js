@@ -23,6 +23,7 @@ const templateUtils = {
           </div>
           <div class="nav-links">
             <a href="/" class="${currentPage === 'home' ? 'active' : ''}">Home</a>
+            <a href="/blog" class="${currentPage === 'blog' ? 'active' : ''}">Blog</a>
             <a href="/admin" class="${currentPage === 'admin' ? 'active' : ''}">Admin</a>
             <a href="/health" class="${currentPage === 'health' ? 'active' : ''}">Health</a>
           </div>
@@ -225,31 +226,51 @@ const templateUtils = {
 
     const js = `
       // Utility functions
-      function copyToClipboard(text) {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(text).then(() => {
+      async function copyToClipboard(text) {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
             showMessage('Copied to clipboard!', 'success');
-          }).catch(() => {
-            fallbackCopyToClipboard(text);
-          });
-        } else {
-          fallbackCopyToClipboard(text);
+            return true;
+          } else {
+            return fallbackCopyToClipboard(text);
+          }
+        } catch (err) {
+          console.error('Copy failed:', err);
+          return fallbackCopyToClipboard(text);
         }
       }
       
       function fallbackCopyToClipboard(text) {
         const textArea = document.createElement('textarea');
         textArea.value = text;
+        // Improve accessibility
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'absolute';
+        textArea.style.left = '-9999px';
+        textArea.style.opacity = '0';
+        
         document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
+        
         try {
-          document.execCommand('copy');
-          showMessage('Copied to clipboard!', 'success');
+          // Select the text and copy
+          textArea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
+          if (successful) {
+            showMessage('Copied to clipboard!', 'success');
+            return true;
+          } else {
+            showMessage('Failed to copy', 'error');
+            return false;
+          }
         } catch (err) {
-          showMessage('Failed to copy', 'error');
+          document.body.removeChild(textArea);
+          console.error('Fallback copy failed:', err);
+          showMessage('Failed to copy: ' + (err.message || 'Unknown error'), 'error');
+          return false;
         }
-        document.body.removeChild(textArea);
       }
       
       function showMessage(message, type = 'success') {

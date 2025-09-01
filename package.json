@@ -5,17 +5,16 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "setup": "./setup.sh",
     "dev": "NODE_ENV=development node app.js",
     "prod": "NODE_ENV=production node app.js",
-    "build": "npm install --production",
+    "setup": "./setup.sh",
     "test": "node test.js",
     "test:parallels": "node test-parallels-features.js",
     "test:performance": "node test-performance.js",
     "test:all": "npm test && npm run test:performance && npm run test:parallels",
     "lint": "node -c app.js && echo 'Syntax check passed'",
     "validate": "npm run lint && npm test",
-    "deploy:local": "npm run build && npm run prod",
+    "deploy:local": "npm run prod",
     "deploy:docker": "docker build -t url-shortener . && docker run -p 3000:3000 url-shortener",
     "health-check": "curl -f http://localhost:3000/health || exit 1",
     "clean": "rm -rf node_modules package-lock.json",
@@ -44,10 +43,21 @@
     "npm": ">=6.0.0"
   },
   "dependencies": {
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "colors": "^1.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "escape-html": "^1.0.3",
     "express": "^5.1.0",
-    "escape-html": "^1.0.3"
+    "express-rate-limit": "^6.7.0",
+    "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0",
+    "node-cron": "^3.0.2",
+    "uuid": "^11.1.0",
+    "winston": "^3.8.2"
   },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/XF2525/Url-shortener.git"

@@ -1,3 +1,6 @@
+const fs = require('fs').promises;
+const path = require('path');
+
 /**
  * Enhanced multi-level caching system for optimal performance
  */
@@ -10,6 +13,49 @@ const enhancedCache = {
   templates: new Map(),
   staticContent: new Map(),
   responses: new Map()
+};
+
+/**
+ * File system utilities for data persistence
+ */
+const fileUtils = {
+  /**
+   * Read data from JSON file
+   * @param {string} filePath - Path to the JSON file
+   * @returns {object} Parsed JSON data
+   */
+  async readData(filePath) {
+    try {
+      const fullPath = path.resolve(filePath);
+      const data = await fs.readFile(fullPath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        // File doesn't exist, return empty object
+        return {};
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Write data to JSON file
+   * @param {string} filePath - Path to the JSON file
+   * @param {object} data - Data to write
+   */
+  async writeData(filePath, data) {
+    try {
+      const fullPath = path.resolve(filePath);
+      const dir = path.dirname(fullPath);
+      
+      // Ensure directory exists
+      await fs.mkdir(dir, { recursive: true });
+      
+      await fs.writeFile(fullPath, JSON.stringify(data, null, 2), 'utf8');
+    } catch (error) {
+      throw error;
+    }
+  }
 };
 
 /**
@@ -129,5 +175,8 @@ const cacheUtils = {
 
 module.exports = {
   cacheUtils,
-  enhancedCache
+  enhancedCache,
+  fileUtils,
+  readData: fileUtils.readData,
+  writeData: fileUtils.writeData
 };

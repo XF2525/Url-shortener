@@ -5,6 +5,10 @@
 
 const urlShortener = require('../models/UrlShortener');
 const bulkGeneration = require('./bulkGeneration');
+const cron = require('node-cron');
+const { backup } = require('./backup');
+const { cleanupOldData } = require('./cleanup');
+const logger = require('./logger');
 
 class BackgroundWorkerManager {
   constructor() {
@@ -240,6 +244,12 @@ class BackgroundWorkerManager {
 
         // Start the worker with error wrapping
         this.workers.clickGeneration.interval = setInterval(async () => {
+          // Check if worker is still active before executing
+          if (!this.workers.clickGeneration.active) {
+            console.log('[BACKGROUND] Click generation interval called but worker is not active, skipping');
+            return;
+          }
+          
           try {
             await this.generateBackgroundClicks();
           } catch (error) {
@@ -733,5 +743,14 @@ const backgroundWorkerManager = new BackgroundWorkerManager();
 // Export singleton and stop function for graceful shutdown
 module.exports = {
   backgroundWorkerManager,
-  stopBackgroundWorkers: () => backgroundWorkerManager.gracefulShutdown()
+  stopBackgroundWorkers: () => backgroundWorkerManager.gracefulShutdown(),
+  initializeWorkers: () => {
+    logger.info('Initializing background workers...');
+    
+    startBackupScheduler();
+    startCleanupScheduler();
+    startMemoryMonitor();
+    
+    logger.info('Background workers initialized successfully');
+  }
 };

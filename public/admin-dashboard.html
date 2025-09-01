@@ -1,0 +1,923 @@
+<!-- Admin Dashboard HTML Document -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - URL Shortener Pro</title>
+    <link rel="stylesheet" href="/admin/styles.css">
+    <script src="/admin/scripts.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Admin Dashboard</h1>
+            <button class="logout" onclick="logout()">Logout</button>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('overview')">Overview</div>
+            <div class="tab" onclick="switchTab('parallels')">Parallels</div>
+            <div class="tab" onclick="switchTab('analytics')">Analytics</div>
+            <div class="tab" onclick="switchTab('activity')">Activity Log</div>
+            <div class="tab" onclick="switchTab('settings')">Settings</div>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-contents">
+            <!-- Overview Tab -->
+            <div id="overview-tab" class="tab-content active">
+                <div class="section">
+                    <h2>📊 Overview</h2>
+                    <div class="grid">
+                        <!-- URL Stats -->
+                        <div class="card">
+                            <h3>🌐 URL Statistics</h3>
+                            <div class="stat">
+                                <span class="label">Total URLs:</span>
+                                <span class="value" id="totalUrls">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Total Clicks:</span>
+                                <span class="value" id="totalClicks">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Active Operations:</span>
+                                <span class="value" id="activeOperations">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">System Health:</span>
+                                <span class="value" id="systemHealth">Good</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="card">
+                            <h3>⚡ Quick Actions</h3>
+                            <button class="primary" onclick="quickGenerate('clicks')">Quick Generate Clicks</button>
+                            <button class="primary" onclick="quickGenerate('views')">Quick Generate Views</button>
+                            <button class="secondary" onclick="performCleanup()">Cleanup</button>
+                            <button class="danger" onclick="emergencyStop()">Emergency Stop</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parallels Tab -->
+            <div id="parallels-tab" class="tab-content">
+                <div class="section">
+                    <h2>🔄 Parallels</h2>
+                    
+                    <!-- Parallel Generation -->
+                    <div class="card">
+                        <h3>Parallel Generation</h3>
+                        <div class="form-group">
+                            <label>Operation Type</label>
+                            <select id="parallelOperation">
+                                <option value="clicks">Clicks</option>
+                                <option value="views">Views</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Number of Tasks</label>
+                            <input type="number" id="parallelTasks" value="5" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Coordination Level</label>
+                            <select id="coordinationLevel">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <button onclick="generateParallels()">Start Parallel Generation</button>
+                        <button onclick="testParallels()">Test Parallels</button>
+                    </div>
+
+                    <!-- Parallel Status -->
+                    <div class="card">
+                        <h3>Parallel Status</h3>
+                        <div class="stat">
+                            <span class="label">Active Tasks:</span>
+                            <span class="value" id="parallelActive">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Efficiency:</span>
+                            <span class="value" id="parallelEfficiency">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Speedup:</span>
+                            <span class="value" id="parallelSpeedup">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Health:</span>
+                            <span class="value" id="parallelHealth">--</span>
+                        </div>
+                        <button onclick="refreshParallelsStatus()">Refresh Status</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="analytics-tab" class="tab-content">
+                <div class="section">
+                    <h2>📈 Analytics Dashboard</h2>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalGenerated">0</div>
+                            <div class="stat-label">Total Generated</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="averageQuality">--</div>
+                            <div class="stat-label">Average Quality</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="successRate">--</div>
+                            <div class="stat-label">Success Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="efficiency">--</div>
+                            <div class="stat-label">Efficiency</div>
+                        </div>
+                    </div>
+
+                    <h3>Detailed Analytics</h3>
+                    <div class="grid">
+                        <!-- URL Analytics -->
+                        <div class="card">
+                            <h3>🔗 URL Analytics</h3>
+                            <div class="form-group">
+                                <label>Short Code</label>
+                                <input type="text" id="analyticsShortCode" placeholder="Enter short code">
+                            </div>
+                            <button onclick="getUrlAnalytics()">Get Analytics</button>
+                            <button onclick="exportUrlAnalytics()">Export CSV</button>
+                        </div>
+
+                        <!-- System Analytics -->
+                        <div class="card">
+                            <h3>⚙️ System Analytics</h3>
+                            <div class="form-group">
+                                <label>Time Range</label>
+                                <select id="systemTimeRange">
+                                    <option value="1h">Last Hour</option>
+                                    <option value="24h">Last 24 Hours</option>
+                                    <option value="7d">Last 7 Days</option>
+                                    <option value="30d">Last 30 Days</option>
+                                </select>
+                            </div>
+                            <button onclick="getSystemAnalytics()">View Analytics</button>
+                            <button class="success" onclick="generateReport()">Generate Report</button>
+                        </div>
+
+                        <!-- Performance Metrics -->
+                        <div class="card">
+                            <h3>📊 Performance Metrics</h3>
+                            <div class="form-group">
+                                <label>Metric Type</label>
+                                <select id="metricType">
+                                    <option value="generation">Generation Speed</option>
+                                    <option value="quality">Quality Scores</option>
+                                    <option value="efficiency">Efficiency</option>
+                                    <option value="resources">Resource Usage</option>
+                                </select>
+                            </div>
+                            <button onclick="getPerformanceMetrics()">View Metrics</button>
+                            <button onclick="optimizeBasedOnMetrics()">Auto-Optimize</button>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Visualization -->
+                    <h3>Data Visualization</h3>
+                    <div class="card">
+                        <div id="analyticsChart" style="height: 400px; display: flex; align-items: center; justify-content: center; color: #666;">
+                            Analytics charts will appear here
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <button onclick="refreshChart()">Refresh</button>
+                            <button onclick="changeChartType()">Change Type</button>
+                            <button onclick="exportChart()">Export Image</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Log Tab -->
+            <div id="activity-tab" class="tab-content">
+                <div class="section">
+                    <h2>📜 Activity Log</h2>
+                    
+                    <div class="grid">
+                        <div class="card">
+                            <h3>🔍 Filter Activities</h3>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="activityCategory">
+                                    <option value="">All Categories</option>
+                                    <option value="generation">Generation</option>
+                                    <option value="optimization">Optimization</option>
+                                    <option value="analytics">Analytics</option>
+                                    <option value="security">Security</option>
+                                    <option value="system">System</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Severity</label>
+                                <select id="activitySeverity">
+                                    <option value="">All Severities</option>
+                                    <option value="info">Info</option>
+                                    <option value="success">Success</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="error">Error</option>
+                                </select>
+                            </div>
+                            <button onclick="filterActivities()">Apply Filter</button>
+                            <button onclick="clearActivityFilters()">Clear</button>
+                        </div>
+
+                        <div class="card">
+                            <h3>📊 Activity Statistics</h3>
+                            <div id="activityStats" style="color: #9CA3AF;">
+                                <p>Total Activities: <span id="totalActivities">0</span></p>
+                                <p>Last Hour: <span id="lastHourActivities">0</span></p>
+                                <p>Storage Used: <span id="storageUsed">0 MB</span></p>
+                            </div>
+                            <button onclick="refreshActivityStats()">Refresh Stats</button>
+                            <button class="warning" onclick="backupActivities()">Backup</button>
+                        </div>
+                    </div>
+
+                    <!-- Activity Log Display -->
+                    <h3>Recent Activities</h3>
+                    <div class="activity-log" id="activityLog">
+                        <div class="activity-entry">
+                            <span class="activity-time">--:--:--</span>
+                            <span class="activity-category">system</span>
+                            <span class="activity-message">Waiting for activities...</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <button onclick="loadMoreActivities()">Load More</button>
+                        <button onclick="startRealtimeMonitoring()">Start Realtime</button>
+                        <button class="danger" onclick="clearActivities()">Clear Log</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <div class="section">
+                    <h2>⚙️ System Settings</h2>
+                    
+                    <div class="grid">
+                        <!-- General Settings -->
+                        <div class="card">
+                            <h3>📋 General Settings</h3>
+                            <div class="form-group">
+                                <label>System Name</label>
+                                <input type="text" id="systemName" value="URL Shortener Pro">
+                            </div>
+                            <div class="form-group">
+                                <label>Default Delay (ms)</label>
+                                <input type="number" id="defaultDelay" value="200" min="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Auto-Save
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="autoSave" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </label>
+                            </div>
+                            <button onclick="saveGeneralSettings()">Save Settings</button>
+                        </div>
+
+                        <!-- Security Settings -->
+                        <div class="card">
+                            <h3>🔒 Security Settings</h3>
+                            <div class="form-group">
+                                <label>Auth Level</label>
+                                <select id="authLevel">
+                                    <option value="standard">Standard</option>
+                                    <option value="advanced">Advanced</option>
+                                    <option value="ultra">Ultra Secure</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Session Timeout (minutes)</label>
+                                <input type="number" id="sessionTimeout" value="30" min="5">
+                            </div>
+                            <button onclick="saveSecuritySettings()">Save Security</button>
+                            <button class="warning" onclick="rotateKeys()">Rotate Keys</button>
+                        </div>
+
+                        <!-- Performance Settings -->
+                        <div class="card">
+                            <h3>⚡ Performance Settings</h3>
+                            <div class="form-group">
+                                <label>Max Parallel Operations</label>
+                                <input type="number" id="maxParallel" value="100" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Cache Size (MB)</label>
+                                <input type="number" id="cacheSize" value="100" min="10">
+                            </div>
+                            <div class="form-group">
+                                <label>Optimization Level</label>
+                                <select id="optimizationLevel">
+                                    <option value="none">None</option>
+                                    <option value="basic">Basic</option>
+                                    <option value="aggressive" selected>Aggressive</option>
+                                    <option value="extreme">Extreme</option>
+                                </select>
+                            </div>
+                            <button onclick="savePerformanceSettings()">Save Performance</button>
+                        </div>
+                    </div>
+
+                    <!-- Maintenance -->
+                    <h3>System Maintenance</h3>
+                    <div class="card">
+                        <h4>🛠️ Maintenance Operations</h4>
+                        <p style="margin-bottom: 1rem; color: #9CA3AF;">Perform system maintenance tasks</p>
+                        <button onclick="clearCache()">Clear Cache</button>
+                        <button onclick="optimizeDatabase()">Optimize Database</button>
+                        <button onclick="runDiagnostics()">Run Diagnostics</button>
+                        <button class="warning" onclick="resetToDefaults()">Reset to Defaults</button>
+                        <button class="danger" onclick="purgeAllData()">Purge All Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="loader"></div>
+        </div>
+
+        <script>
+            // Check authentication
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = '/admin';
+            }
+
+            // Global variables
+            let currentTab = 'overview';
+            let realtimeListener = null;
+            let chartInstance = null;
+
+            // Tab switching
+            function switchTab(tabName) {
+                // Update tab buttons
+                document.querySelectorAll('.tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+
+                currentTab = tabName;
+
+                // Load tab-specific data
+                loadTabData(tabName);
+            }
+
+            // Load tab-specific data
+            function loadTabData(tabName) {
+                switch(tabName) {
+                    case 'overview':
+                        loadOverviewData();
+                        break;
+                    case 'parallels':
+                        refreshParallelsStatus();
+                        break;
+                    case 'analytics':
+                        loadAnalyticsData();
+                        break;
+                    case 'activity':
+                        loadRecentActivities();
+                        refreshActivityStats();
+                        break;
+                }
+            }
+
+            // API helper function
+            async function apiCall(endpoint, method = 'GET', body = null) {
+                showLoading();
+                try {
+                    const options = {
+                        method,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    };
+
+                    if (body) {
+                        options.body = JSON.stringify(body);
+                    }
+
+                    const response = await fetch(endpoint, options);
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'API call failed');
+                    }
+
+                    return data;
+                } catch (error) {
+                    showAlert('error', error.message);
+                    throw error;
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            // Loading functions
+            function showLoading() {
+                document.getElementById('loadingOverlay').style.display = 'flex';
+            }
+
+            function hideLoading() {
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+
+            // Alert functions
+            function showAlert(type, message) {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert ${type}`;
+                alertDiv.innerHTML = `
+                    <span>${type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                    <span>${message}</span>
+                `;
+                
+                document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.tabs'));
+                
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 5000);
+            }
+
+            // Overview functions
+            async function loadOverviewData() {
+                try {
+                    const [analytics, status] = await Promise.all([
+                        apiCall('/admin/api/analytics'),
+                        apiCall('/admin/api/status')
+                    ]);
+
+                    document.getElementById('totalUrls').textContent = analytics.urls?.length || 0;
+                    document.getElementById('totalClicks').textContent = 
+                        analytics.urls?.reduce((sum, url) => sum + (url.clicks || 0), 0) || 0;
+                    document.getElementById('activeOperations').textContent = status.activeOperations || 0;
+                    document.getElementById('systemHealth').textContent = status.health || 'Good';
+                } catch (error) {
+                    console.error('Failed to load overview data:', error);
+                }
+            }
+
+            // Generation functions
+            async function generateClicks() {
+                const shortCode = document.getElementById('clickShortCode').value;
+                const count = document.getElementById('clickCount').value;
+                const delay = document.getElementById('clickDelay').value;
+
+                if (!shortCode) {
+                    showAlert('error', 'Please enter a short code');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/automation/generate-clicks', 'POST', {
+                        shortCode,
+                        count: parseInt(count),
+                        delay: parseInt(delay)
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate clicks:', error);
+                }
+            }
+
+            async function generateBulkClicks() {
+                try {
+                    const result = await apiCall('/admin/api/automation/generate-bulk-clicks', 'POST', {
+                        clicksPerUrl: 10
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate bulk clicks:', error);
+                }
+            }
+
+            async function generateViews() {
+                const blogPostId = document.getElementById('blogPostId').value;
+                const count = document.getElementById('viewCount').value;
+
+                if (!blogPostId) {
+                    showAlert('error', 'Please enter a blog post ID');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/blog/automation/generate-views', 'POST', {
+                        blogPostId,
+                        count: parseInt(count)
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate views:', error);
+                }
+            }
+
+            async function generateAdvancedViews() {
+                const blogPostId = document.getElementById('blogPostId').value;
+                const count = document.getElementById('viewCount').value;
+
+                if (!blogPostId) {
+                    showAlert('error', 'Please enter a blog post ID');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/blog/automation/generate-advanced-views-with-ads', 'POST', {
+                        blogPostId,
+                        count: parseInt(count)
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate advanced views:', error);
+                }
+            }
+
+            // Advanced Generation functions
+            async function generateSessionClicks() {
+                const shortCode = document.getElementById('sessionShortCode').value;
+                const sessionCount = document.getElementById('sessionCount').value;
+                const geoTarget = document.getElementById('sessionGeoTarget').value;
+
+                if (!shortCode) {
+                    showAlert('error', 'Please enter a short code');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/automation/generate-session-clicks', 'POST', {
+                        shortCode,
+                        sessionCount: parseInt(sessionCount),
+                        geoTargeting: geoTarget ? { country: geoTarget } : undefined
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate session clicks:', error);
+                }
+            }
+
+            async function generateGeoTargetedClicks() {
+                const clicksPerRegion = document.getElementById('geoClicksPerRegion').value;
+                const regions = document.getElementById('geoRegions').value.split(',').map(r => r.trim());
+                const timePattern = document.getElementById('geoTimePattern').value;
+
+                try {
+                    const result = await apiCall('/admin/api/automation/generate-geo-targeted-clicks', 'POST', {
+                        clicksPerRegion: parseInt(clicksPerRegion),
+                        regions,
+                        timePattern
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to generate geo-targeted clicks:', error);
+                }
+            }
+
+            async function simulateViralTraffic() {
+                const shortCode = document.getElementById('viralShortCode').value;
+                const viralType = document.getElementById('viralType').value;
+                const baseVolume = document.getElementById('viralBaseVolume').value;
+
+                if (!shortCode) {
+                    showAlert('error', 'Please enter a short code');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/automation/simulate-viral-traffic', 'POST', {
+                        shortCode,
+                        viralType,
+                        baseVolume: parseInt(baseVolume)
+                    });
+                    showAlert('success', result.message);
+                } catch (error) {
+                    console.error('Failed to simulate viral traffic:', error);
+                }
+            }
+
+            // Aura functions
+            async function generateAIOptimizedTraffic() {
+                const target = document.getElementById('aiTarget').value;
+                const volume = document.getElementById('aiVolume').value;
+                const aiLearning = document.getElementById('aiLearning').checked;
+                const aiAdaptive = document.getElementById('aiAdaptive').checked;
+                const aiPredictive = document.getElementById('aiPredictive').checked;
+
+                if (!target) {
+                    showAlert('error', 'Please enter a target');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/aura/ai-optimized-traffic', 'POST', {
+                        target,
+                        count: parseInt(volume),
+                        options: {
+                            aiLearning,
+                            adaptiveOptimization: aiAdaptive,
+                            predictiveModeling: aiPredictive
+                        }
+                    });
+                    showAlert('success', 'AI-optimized traffic generated successfully');
+                } catch (error) {
+                    console.error('Failed to generate AI traffic:', error);
+                }
+            }
+
+            async function generateHumanBehavior() {
+                const behaviorType = document.getElementById('behaviorType').value;
+                const sessions = document.getElementById('behaviorSessions').value;
+                const engagementLevel = document.getElementById('engagementLevel').value;
+
+                try {
+                    const result = await apiCall('/admin/api/aura/human-behavior', 'POST', {
+                        behaviorType,
+                        sessionCount: parseInt(sessions),
+                        engagementLevel: parseInt(engagementLevel)
+                    });
+                    showAlert('success', 'Human-like behavior generated successfully');
+                } catch (error) {
+                    console.error('Failed to generate human behavior:', error);
+                }
+            }
+
+            async function getAdvancedAnalytics() {
+                const target = document.getElementById('analyticsTarget').value;
+                const timeframe = document.getElementById('analyticsTimeframe').value;
+
+                if (!target) {
+                    showAlert('error', 'Please enter a target');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall(`/admin/api/aura/advanced-analytics?target=${target}&timeframe=${timeframe}`);
+                    showAlert('success', 'Analytics generated successfully');
+                    // Display analytics data
+                    console.log('Analytics:', result);
+                } catch (error) {
+                    console.error('Failed to get analytics:', error);
+                }
+            }
+
+            // Parallels functions
+            async function generateParallels() {
+                const operation = document.getElementById('parallelOperation').value;
+                const tasks = document.getElementById('parallelTasks').value;
+                const coordinationLevel = document.getElementById('coordinationLevel').value;
+                const loadBalancing = document.getElementById('loadBalancing').checked;
+                const distributedProcessing = document.getElementById('distributedProcessing').checked;
+                const realTimeOptimization = document.getElementById('realTimeOptimization').checked;
+                const superiorPowersMode = document.getElementById('superiorPowersMode').checked;
+
+                try {
+                    const result = await apiCall('/admin/api/aura/parallels-features', 'POST', {
+                        operationType: operation,
+                        parallelTasks: parseInt(tasks),
+                        coordinationLevel,
+                        loadBalancing,
+                        distributedProcessing,
+                        realTimeOptimization,
+                        superiorPowersMode
+                    });
+                    showAlert('success', `Parallel generation started with ${tasks} tasks`);
+                    refreshParallelsStatus();
+                } catch (error) {
+                    console.error('Failed to generate parallels:', error);
+                }
+            }
+
+            async function testParallels() {
+                try {
+                    const result = await apiCall('/admin/api/aura/test-parallels', 'POST');
+                    showAlert('success', 'Parallels test completed successfully');
+                } catch (error) {
+                    console.error('Failed to test parallels:', error);
+                }
+            }
+
+            async function refreshParallelsStatus() {
+                try {
+                    const status = await apiCall('/admin/api/aura/parallels-status');
+                    
+                    document.getElementById('parallelActive').textContent = status.activeTasks || '0';
+                    document.getElementById('parallelEfficiency').textContent = 
+                        status.efficiency ? `${(status.efficiency * 100).toFixed(1)}%` : '--';
+                    document.getElementById('parallelSpeedup').textContent = 
+                        status.speedup ? `${status.speedup}x` : '--';
+                    document.getElementById('parallelHealth').textContent = status.health || '--';
+                } catch (error) {
+                    console.error('Failed to get parallels status:', error);
+                }
+            }
+
+            // Experimental functions
+            async function generateAIPatterns() {
+                const patternType = document.getElementById('aiPatternType').value;
+                const complexity = document.getElementById('patternComplexity').value;
+
+                try {
+                    const result = await apiCall('/admin/api/experimental/ai-traffic-patterns', 'POST', {
+                        patternType,
+                        complexity: parseInt(complexity)
+                    });
+                    showAlert('success', 'AI traffic patterns generated successfully');
+                } catch (error) {
+                    console.error('Failed to generate AI patterns:', error);
+                }
+            }
+
+            async function generateBehavioralTraffic() {
+                const selectedOptions = document.getElementById('userPersonas').selectedOptions;
+                const personas = Array.from(selectedOptions).map(option => option.value);
+                const realism = document.getElementById('behaviorRealism').value;
+
+                if (personas.length === 0) {
+                    showAlert('error', 'Please select at least one persona');
+                    return;
+                }
+
+                try {
+                    const result = await apiCall('/admin/api/experimental/behavioral-traffic', 'POST', {
+                        personas,
+                        realismLevel: parseInt(realism)
+                    });
+                    showAlert('success', 'Behavioral traffic generated successfully');
+                } catch (error) {
+                    console.error('Failed to generate behavioral traffic:', error);
+                }
+            }
+
+            async function simulateTrafficWave() {
+                const pattern = document.getElementById('wavePattern').value;
+                const amplitude = document.getElementById('waveAmplitude').value;
+                const period = document.getElementById('wavePeriod').value;
+
+                try {
+                    const result = await apiCall('/admin/api/experimental/traffic-wave', 'POST', {
+                        wavePattern: pattern,
+                        amplitude: parseInt(amplitude),
+                        periodHours: parseInt(period)
+                    });
+                    showAlert('success', 'Traffic wave simulation started');
+                } catch (error) {
+                    console.error('Failed to simulate traffic wave:', error);
+                }
+            }
+
+            // Activity Log functions
+            async function loadRecentActivities() {
+                try {
+                    const activities = await apiCall('/admin/api/activity/recent?count=20');
+                    displayActivities(activities);
+                } catch (error) {
+                    console.error('Failed to load activities:', error);
+                }
+            }
+
+            async function refreshActivityStats() {
+                try {
+                    const stats = await apiCall('/admin/api/activity/stats');
+                    document.getElementById('totalActivities').textContent = stats.total || 0;
+                    document.getElementById('lastHourActivities').textContent = stats.lastHour || 0;
+                    document.getElementById('storageUsed').textContent = stats.storageUtilization || '0 MB';
+                } catch (error) {
+                    console.error('Failed to refresh activity stats:', error);
+                }
+            }
+
+            function displayActivities(activities) {
+                const logDiv = document.getElementById('activityLog');
+                logDiv.innerHTML = '';
+
+                activities.forEach(activity => {
+                    const entry = document.createElement('div');
+                    entry.className = 'activity-entry';
+                    
+                    const time = new Date(activity.timestamp).toLocaleTimeString();
+                    
+                    entry.innerHTML = `
+                        <span class="activity-time">${time}</span>
+                        <span class="activity-category">${activity.category}</span>
+                        <span class="activity-message">${activity.action}</span>
+                    `;
+                    
+                    logDiv.appendChild(entry);
+                });
+            }
+
+            // Background operation functions
+            async function startBackgroundOperation() {
+                const type = document.getElementById('bgOperationType').value;
+                const interval = document.getElementById('bgInterval').value;
+
+                try {
+                    const endpoint = type === 'clicks' ? 
+                        '/admin/api/automation/start-background-clicks' : 
+                        '/admin/api/automation/start-background-views';
+                    
+                    const result = await apiCall(endpoint, 'POST', {
+                        interval: parseInt(interval) * 1000
+                    });
+                    showAlert('success', `Background ${type} generation started`);
+                } catch (error) {
+                    console.error('Failed to start background operation:', error);
+                }
+            }
+
+            async function stopBackgroundOperations() {
+                try {
+                    const result = await apiCall('/admin/api/automation/stop-background-processes', 'POST');
+                    showAlert('success', 'All background operations stopped');
+                } catch (error) {
+                    console.error('Failed to stop background operations:', error);
+                }
+            }
+
+            async function getBackgroundStatus() {
+                try {
+                    const status = await apiCall('/admin/api/automation/background-status');
+                    const message = `Active: ${status.activeProcesses.join(', ') || 'None'}`;
+                    showAlert('info', message);
+                } catch (error) {
+                    console.error('Failed to get background status:', error);
+                }
+            }
+
+            // Quick action functions
+            async function quickGenerate(type) {
+                try {
+                    if (type === 'clicks') {
+                        await apiCall('/admin/api/automation/generate-bulk-clicks', 'POST', {
+                            clicksPerUrl: 5
+                        });
+                    } else {
+                        await apiCall('/admin/api/blog/automation/generate-views', 'POST', {
+                            blogPostId: 'all',
+                            count: 100
+                        });
+                    }
+                    showAlert('success', `Quick ${type} generation completed`);
+                } catch (error) {
+                    console.error(`Failed to quick generate ${type}:`, error);
+                }
+            }
+
+            async function performCleanup() {
+                try {
+                    const result = await apiCall('/admin/api/automation/cleanup', 'POST');
+                    showAlert('success', 'Cleanup completed successfully');
+                } catch (error) {
+                    console.error('Failed to perform cleanup:', error);
+                }
+            }
+
+            async function emergencyStop() {
+                if (confirm('Are you sure you want to stop all operations?')) {
+                    try {
+                        const result = await apiCall('/admin/api/automation/emergency-stop', 'POST');
+                        showAlert('warning', 'Emergency stop executed');
+                    } catch (error) {
+                        console.error('Failed to execute emergency stop:', error);
+                    }
+                }
+            }
+
+            function logout() {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/admin';
+            }
+
+            // Initialize
+            loadOverviewData();
+        </script>
+    </div>
+</body>
+</html>

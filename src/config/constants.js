@@ -14,10 +14,19 @@ const CONFIG = {
   BULK_BLOG_VIEW_LIMIT: 30,
   
   // Memory management settings
-  MAX_URLS_IN_MEMORY: 10000,
-  MAX_ANALYTICS_HISTORY: 1000,
-  CLEANUP_INTERVAL: 3600000, // 1 hour
-  VALIDATION_CACHE_LIMIT: 1000,
+  MAX_URLS_IN_MEMORY: 50000, // Increased for better capacity
+  MAX_ANALYTICS_HISTORY: 2000, // Increased for better analytics
+  CLEANUP_INTERVAL: 1800000, // 30 minutes (more frequent cleanup)
+  VALIDATION_CACHE_LIMIT: 5000, // Increased cache for better performance
+  
+  // In-memory optimization settings
+  MEMORY_OPTIMIZATION: {
+    ENABLE_AUTO_BACKUP: true,
+    BACKUP_INTERVAL: 300000, // 5 minutes
+    BACKUP_FILE_PATH: './data/backup.json',
+    ENABLE_COMPRESSION: true,
+    MAX_BACKUP_FILES: 10
+  },
   
   // Timing configurations
   BASE_DELAYS: {

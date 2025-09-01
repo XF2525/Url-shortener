@@ -1,0 +1,2739 @@
+{
+  "timestamp": "2025-09-01T07:52:53.382Z",
+  "urlDatabase": [
+    [
+      "KIqObm",
+      {
+        "originalUrl": "https://www.example.com/",
+        "shortCode": "KIqObm",
+        "createdAt": "2025-08-31T04:49:14.623Z",
+        "clicks": 100,
+        "lastAccessed": "2025-08-31T06:59:42.025Z"
+      }
+    ]
+  ],
+  "analytics": [
+    [
+      "KIqObm",
+      {
+        "history": [
+          {
+            "timestamp": "2025-08-31T06:59:24.223Z",
+            "ip": "8.8.4.216",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "badd295f-7f57-40dd-9f9a-311b1e48e54f",
+            "behavior": {
+              "sessionDuration": 102852,
+              "scrollDepth": 64,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "Oceania",
+              "language": "de-DE"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.324Z",
+            "ip": "179.60.194.193",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "85ea69e5-1180-479d-947f-205ccb91ee14",
+            "behavior": {
+              "sessionDuration": 229780,
+              "scrollDepth": 35,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "North America",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.425Z",
+            "ip": "3.254.121.175",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "109218d9-e149-4c07-a343-7369baf67477",
+            "behavior": {
+              "sessionDuration": 122450,
+              "scrollDepth": 94,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.526Z",
+            "ip": "8.8.4.190",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; Gaming) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraGaming/1.0",
+            "sessionId": "096240c6-90ac-4a8e-ace6-5e7eaa975eae",
+            "behavior": {
+              "sessionDuration": 193435,
+              "scrollDepth": 88,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "South America",
+              "language": "de-DE"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.626Z",
+            "ip": "40.151.185.51",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "a65e0801-9678-42d0-b74e-6c4c2b6143ca",
+            "behavior": {
+              "sessionDuration": 287495,
+              "scrollDepth": 20,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "Asia",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.727Z",
+            "ip": "104.24.137.214",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraEnhanced/2.0",
+            "sessionId": "c2558907-0681-4b1e-a684-4edcc5bb8946",
+            "behavior": {
+              "sessionDuration": 170532,
+              "scrollDepth": 28,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Europe",
+              "language": "en-GB"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.828Z",
+            "ip": "13.107.69.201",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; Quantum) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraQuantum/2.0 QE/1.0",
+            "sessionId": "9b3a1b79-e8f2-4221-9edb-ce8db8b10708",
+            "behavior": {
+              "sessionDuration": 194944,
+              "scrollDepth": 46,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:24.929Z",
+            "ip": "8.8.4.74",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "0fe10481-5242-4106-81f0-23032f4d646e",
+            "behavior": {
+              "sessionDuration": 43175,
+              "scrollDepth": 54,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "North America",
+              "language": "en-GB"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.030Z",
+            "ip": "13.107.19.55",
+            "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/121.0.6167.138 Mobile/15E148 Safari/604.1",
+            "sessionId": "557e2557-1b66-48a0-91a0-b9de9dc1488d",
+            "behavior": {
+              "sessionDuration": 64684,
+              "scrollDepth": 21,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "en-US"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.131Z",
+            "ip": "173.252.95.227",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "8c576d20-b151-419c-b191-2ab179e05792",
+            "behavior": {
+              "sessionDuration": 158400,
+              "scrollDepth": 92,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.232Z",
+            "ip": "129.134.128.66",
+            "userAgent": "Mozilla/5.0 (SmartTV; Tizen 6.0; Samsung) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 AuraSmartTV/1.0",
+            "sessionId": "a3594306-0227-43cd-a3b0-65d8d96702ca",
+            "behavior": {
+              "sessionDuration": 285823,
+              "scrollDepth": 93,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.332Z",
+            "ip": "192.0.2.138",
+            "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/121.0.6167.138 Mobile/15E148 Safari/604.1",
+            "sessionId": "28152c1b-eceb-4bd5-9d85-d8b21ec4ab5d",
+            "behavior": {
+              "sessionDuration": 296053,
+              "scrollDepth": 29,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "Europe",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.433Z",
+            "ip": "192.88.99.210",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Asia-Pacific) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraAPAC/1.0",
+            "sessionId": "0cabce13-ab88-4153-97ee-03223e560260",
+            "behavior": {
+              "sessionDuration": 64182,
+              "scrollDepth": 73,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Europe",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.534Z",
+            "ip": "173.252.67.214",
+            "userAgent": "Mozilla/5.0 (Macintosh; Apple M3 Pro; Mac OS X 14_3; Blockchain) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraBlockchain/1.0",
+            "sessionId": "3d920e9f-4ca9-42d9-88d1-442e26dc9beb",
+            "behavior": {
+              "sessionDuration": 205676,
+              "scrollDepth": 77,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "North America",
+              "language": "de-DE"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.635Z",
+            "ip": "0.0.0.0",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "0fc54ef7-a4b8-468e-92be-2a78b62261ab",
+            "behavior": {
+              "sessionDuration": 197210,
+              "scrollDepth": 82,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "South America",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.736Z",
+            "ip": "3.252.138.66",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraElite/2.0",
+            "sessionId": "b4b9666e-32ea-44ae-acc5-4d940f3fbdb5",
+            "behavior": {
+              "sessionDuration": 56771,
+              "scrollDepth": 71,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "Oceania",
+              "language": "en-GB"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.837Z",
+            "ip": "179.60.195.102",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; EU-West) AppleWebKit/605.2.15 (KHTML, like Gecko) Version/17.2 Safari/605.2.15 AuraEU/1.0",
+            "sessionId": "84dd160b-e171-40b3-96b6-519a405a2202",
+            "behavior": {
+              "sessionDuration": 181880,
+              "scrollDepth": 78,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "en-GB"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:25.938Z",
+            "ip": "157.240.49.234",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "7ba52c70-2bda-43bc-8cf4-e75c4954c68a",
+            "behavior": {
+              "sessionDuration": 192009,
+              "scrollDepth": 31,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "de-DE"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.038Z",
+            "ip": "54.177.69.113",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; AR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraAR/1.0",
+            "sessionId": "c155ee4f-1f41-40d1-8570-08b21e1e4f9b",
+            "behavior": {
+              "sessionDuration": 275218,
+              "scrollDepth": 64,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Oceania",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.139Z",
+            "ip": "198.41.0.194",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "1df3ba87-9d02-4d36-b140-7033f298d350",
+            "behavior": {
+              "sessionDuration": 105834,
+              "scrollDepth": 34,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "South America",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.240Z",
+            "ip": "192.0.2.208",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; AR) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraAR/1.0",
+            "sessionId": "5bc307ce-603b-43bb-8aa6-fdbff894fa07",
+            "behavior": {
+              "sessionDuration": 243681,
+              "scrollDepth": 64,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.341Z",
+            "ip": "192.5.5.64",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; US-East) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraGeo/1.0",
+            "sessionId": "5ab10af7-280d-46db-847d-456d1b8d7cc4",
+            "behavior": {
+              "sessionDuration": 115201,
+              "scrollDepth": 39,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "Asia",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.440Z",
+            "ip": "129.174.211.75",
+            "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0; Chromebook) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraChrome/1.0",
+            "sessionId": "b85a50b4-e726-4113-b016-16175360d4b2",
+            "behavior": {
+              "sessionDuration": 78220,
+              "scrollDepth": 36,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Oceania",
+              "language": "fr-FR"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.541Z",
+            "ip": "50.17.45.29",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+            "sessionId": "c55d757b-3a87-41bd-8671-f8eada1766bd",
+            "behavior": {
+              "sessionDuration": 297038,
+              "scrollDepth": 71,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Oceania",
+              "language": "de-DE"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.642Z",
+            "ip": "69.171.236.164",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Gov) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraGov/1.0",
+            "sessionId": "ea636a3f-6dd7-46a6-a052-6ab29f3d73b9",
+            "behavior": {
+              "sessionDuration": 162208,
+              "scrollDepth": 80,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Oceania",
+              "language": "es-ES"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.743Z",
+            "ip": "50.20.176.237",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; Secure) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraSecure/1.0",
+            "sessionId": "3e13f198-6814-43cd-809c-c70a5a331d0d",
+            "behavior": {
+              "sessionDuration": 127354,
+              "scrollDepth": 49,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "North America",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.843Z",
+            "ip": "199.232.95.14",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; Gaming) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraGaming/1.0",
+            "sessionId": "d022a012-2a26-4f65-8d59-29050acc137d",
+            "behavior": {
+              "sessionDuration": 35320,
+              "scrollDepth": 65,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:26.944Z",
+            "ip": "44.196.76.130",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "4ec9ef71-77d0-40e8-9bf5-c5ad9c488fa8",
+            "behavior": {
+              "sessionDuration": 287528,
+              "scrollDepth": 81,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.045Z",
+            "ip": "54.169.175.3",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "42714077-1393-4cee-888b-982847ed1695",
+            "behavior": {
+              "sessionDuration": 4933,
+              "scrollDepth": 46,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Oceania",
+              "language": "zh-CN"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.145Z",
+            "ip": "13.107.118.25",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.2; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "49faed05-1929-4f82-97a9-8ec5e6f7ee56",
+            "behavior": {
+              "sessionDuration": 187930,
+              "scrollDepth": 78,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Oceania",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.246Z",
+            "ip": "1.0.0.204",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "823a01fb-0f74-4382-a372-3e5bd6e101a8",
+            "behavior": {
+              "sessionDuration": 286585,
+              "scrollDepth": 62,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Europe",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.347Z",
+            "ip": "9.9.9.71",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; Education) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15 AuraEdu/1.0",
+            "sessionId": "9ece4e6f-a181-4f45-9da3-0d24f0557322",
+            "behavior": {
+              "sessionDuration": 182425,
+              "scrollDepth": 40,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "zh-CN"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.448Z",
+            "ip": "52.74.220.77",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+            "sessionId": "c6aaca5b-010c-49af-83a4-2e07e03390a3",
+            "behavior": {
+              "sessionDuration": 20167,
+              "scrollDepth": 75,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "North America",
+              "language": "de-DE"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.549Z",
+            "ip": "156.154.71.29",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "sessionId": "d6c0ef0c-9c14-4400-8ccf-f6fbea80a7e8",
+            "behavior": {
+              "sessionDuration": 231599,
+              "scrollDepth": 76,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.649Z",
+            "ip": "185.60.218.172",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "00cd83a4-cd1f-4aa4-909c-8a4229c63b47",
+            "behavior": {
+              "sessionDuration": 2903,
+              "scrollDepth": 22,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "en-US"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.750Z",
+            "ip": "185.199.188.243",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; EU-West) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15 AuraEU/1.0",
+            "sessionId": "83ce5585-5c49-4ec2-a623-105dada89097",
+            "behavior": {
+              "sessionDuration": 219066,
+              "scrollDepth": 53,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Oceania",
+              "language": "en-US"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.851Z",
+            "ip": "198.51.100.86",
+            "userAgent": "Mozilla/5.0 (Nintendo Switch; WebApplet) AppleWebKit/609.4 (KHTML, like Gecko) NF/6.0.2.20.3 NintendoBrowser/5.1.0.22474 AuraGaming/1.0",
+            "sessionId": "7223d440-2b69-4fd0-b1da-5ed291afbac9",
+            "behavior": {
+              "sessionDuration": 125876,
+              "scrollDepth": 98,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:27.952Z",
+            "ip": "31.13.29.216",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "f1af70c8-b61e-4deb-8f0f-d891a43a3152",
+            "behavior": {
+              "sessionDuration": 295701,
+              "scrollDepth": 41,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Asia",
+              "language": "en-US"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.052Z",
+            "ip": "44.205.0.128",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; Enterprise) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraEnterprise/1.0",
+            "sessionId": "d7c39fae-19e1-451e-a7c3-edbf558e3794",
+            "behavior": {
+              "sessionDuration": 263844,
+              "scrollDepth": 78,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.153Z",
+            "ip": "185.199.60.241",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "37a4b386-21ff-4edf-9fa8-b992870ba00f",
+            "behavior": {
+              "sessionDuration": 53654,
+              "scrollDepth": 52,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.254Z",
+            "ip": "18.197.13.77",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; EU-West) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15 AuraEU/1.0",
+            "sessionId": "e9af0fac-1e9d-4b98-bee0-31fb34e2636d",
+            "behavior": {
+              "sessionDuration": 201284,
+              "scrollDepth": 61,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.355Z",
+            "ip": "44.232.108.98",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "1e0d368e-708f-4ac6-8c2a-61c94d1e7596",
+            "behavior": {
+              "sessionDuration": 214410,
+              "scrollDepth": 65,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Asia",
+              "language": "zh-CN"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.455Z",
+            "ip": "54.188.247.90",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraEnhanced/2.0",
+            "sessionId": "196a41bb-bf7e-4150-9434-42b54057e70b",
+            "behavior": {
+              "sessionDuration": 229281,
+              "scrollDepth": 42,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Europe",
+              "language": "ja-JP"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.556Z",
+            "ip": "157.240.157.24",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "2715eb5e-4abe-4a38-8615-96a34d2f72ba",
+            "behavior": {
+              "sessionDuration": 190339,
+              "scrollDepth": 52,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "ja-JP"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.657Z",
+            "ip": "198.41.0.23",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X; Creative) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1 AuraCreative/1.0",
+            "sessionId": "e6276fa6-7389-420a-9b84-0de66ff3c741",
+            "behavior": {
+              "sessionDuration": 283710,
+              "scrollDepth": 24,
+              "clickEvents": 0,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "South America",
+              "language": "de-DE"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.758Z",
+            "ip": "54.213.24.36",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraPremium/2.0",
+            "sessionId": "947ed9cb-833d-43c1-82fd-3076092d7b38",
+            "behavior": {
+              "sessionDuration": 20641,
+              "scrollDepth": 64,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "Oceania",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.858Z",
+            "ip": "192.5.5.47",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+            "sessionId": "d1b9f578-2b14-44c4-a0f7-b927d2b959d3",
+            "behavior": {
+              "sessionDuration": 268978,
+              "scrollDepth": 44,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "en-GB"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:28.959Z",
+            "ip": "44.201.139.188",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraEnhanced/2.0",
+            "sessionId": "7d8c6d7d-d1cf-4036-930d-75c7dd9b0f8e",
+            "behavior": {
+              "sessionDuration": 79263,
+              "scrollDepth": 94,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:29.060Z",
+            "ip": "20.215.227.147",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; SM-G998B; Power) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36 AuraPower/1.0",
+            "sessionId": "da33baaf-a435-434b-ba9d-02fd1fc731b6",
+            "behavior": {
+              "sessionDuration": 236894,
+              "scrollDepth": 31,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "es-ES"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:29.161Z",
+            "ip": "69.171.240.69",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+            "sessionId": "c97824fa-d83a-4450-a3ab-4f95fa58c21a",
+            "behavior": {
+              "sessionDuration": 84376,
+              "scrollDepth": 30,
+              "clickEvents": 0,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "North America",
+              "language": "es-ES"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623564223,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "64d4b544-368a-4a93-b2dd-335b16953c52"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.088Z",
+            "ip": "52.71.176.42",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "d25d39f8-2093-46f5-9db8-1014575fb9a2",
+            "behavior": {
+              "sessionDuration": 72486,
+              "scrollDepth": 58,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "Asia",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.189Z",
+            "ip": "185.199.233.176",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; US-East) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraGeo/1.0",
+            "sessionId": "d052bbf1-c7f3-4ea4-a886-bf8a9633e4a3",
+            "behavior": {
+              "sessionDuration": 185561,
+              "scrollDepth": 29,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Europe",
+              "language": "es-ES"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.290Z",
+            "ip": "151.101.111.22",
+            "userAgent": "Mozilla/5.0 (Macintosh; Apple M3; Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraML/1.2",
+            "sessionId": "08bee877-d1f7-4efb-a38d-bf70aad6932a",
+            "behavior": {
+              "sessionDuration": 297520,
+              "scrollDepth": 20,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Europe",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.390Z",
+            "ip": "129.134.219.60",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; Gaming) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraGaming/1.0",
+            "sessionId": "1ae7716f-497d-44f7-87b7-26677bc3c202",
+            "behavior": {
+              "sessionDuration": 245642,
+              "scrollDepth": 66,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Oceania",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.491Z",
+            "ip": "76.76.19.33",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "61e9649d-42e7-4b9c-81c9-be79ceb34709",
+            "behavior": {
+              "sessionDuration": 27136,
+              "scrollDepth": 97,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.592Z",
+            "ip": "129.174.233.28",
+            "userAgent": "Mozilla/5.0 (Nintendo Switch; WebApplet) AppleWebKit/609.4 (KHTML, like Gecko) NF/6.0.2.20.3 NintendoBrowser/5.1.0.22474 AuraGaming/1.0",
+            "sessionId": "b2b70a53-0f61-46a9-9e56-d1cd53860b9d",
+            "behavior": {
+              "sessionDuration": 253651,
+              "scrollDepth": 30,
+              "clickEvents": 0,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Europe",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.693Z",
+            "ip": "208.67.222.119",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+            "sessionId": "f94fea01-7e8c-420d-ab9e-b6c93ae82f55",
+            "behavior": {
+              "sessionDuration": 70922,
+              "scrollDepth": 35,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "South America",
+              "language": "en-GB"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.793Z",
+            "ip": "192.88.99.182",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; SM-G998B; Power) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36 AuraPower/1.0",
+            "sessionId": "5134f2ef-a1d8-4ffc-8010-dbe484ab4790",
+            "behavior": {
+              "sessionDuration": 106183,
+              "scrollDepth": 34,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Asia",
+              "language": "en-GB"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.894Z",
+            "ip": "9.9.9.36",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "ad3cd5e8-c0bd-45bf-a03e-a1e1a2631e1f",
+            "behavior": {
+              "sessionDuration": 52627,
+              "scrollDepth": 38,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Oceania",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:37.995Z",
+            "ip": "199.7.83.229",
+            "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/121.0.6167.138 Mobile/15E148 Safari/604.1",
+            "sessionId": "76fb6ec7-4b8c-476b-a47b-8a3b6adde262",
+            "behavior": {
+              "sessionDuration": 10628,
+              "scrollDepth": 28,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.096Z",
+            "ip": "54.189.221.126",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.2.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "f1b22b81-aa48-47e0-99a5-3d339c9229d7",
+            "behavior": {
+              "sessionDuration": 296715,
+              "scrollDepth": 60,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "South America",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.197Z",
+            "ip": "179.60.195.73",
+            "userAgent": "Mozilla/5.0 (SmartTV; Tizen 6.0; Samsung) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 AuraSmartTV/1.0",
+            "sessionId": "6fcaa614-d73e-47d0-9378-b577f8e6f456",
+            "behavior": {
+              "sessionDuration": 21273,
+              "scrollDepth": 50,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "North America",
+              "language": "en-US"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.297Z",
+            "ip": "129.174.20.107",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraQuantum/1.0",
+            "sessionId": "d652b3d7-3e0e-40ef-8515-166af77d1624",
+            "behavior": {
+              "sessionDuration": 50440,
+              "scrollDepth": 79,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.398Z",
+            "ip": "173.252.89.239",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.2.0.0 Safari/537.36 AuraPremium/2.0",
+            "sessionId": "220fa8a7-1d32-4e80-80fe-96969d766388",
+            "behavior": {
+              "sessionDuration": 268450,
+              "scrollDepth": 36,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Europe",
+              "language": "en-US"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.499Z",
+            "ip": "198.32.8.22",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; AntiFingerprint) AppleWebKit/605.2.15 (KHTML, like Gecko) Version/17.2 Safari/605.0.15 AuraPrivacy/1.0",
+            "sessionId": "6ac6e2a8-6a08-4f90-9e11-53f77a59e5a0",
+            "behavior": {
+              "sessionDuration": 195923,
+              "scrollDepth": 41,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "North America",
+              "language": "de-DE"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.600Z",
+            "ip": "185.60.218.181",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "69c9ae24-0ce4-43a3-a7a7-2dfa51970e33",
+            "behavior": {
+              "sessionDuration": 99109,
+              "scrollDepth": 35,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "South America",
+              "language": "en-GB"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.700Z",
+            "ip": "54.169.151.179",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "6787646d-4f48-4172-9ed1-bdec230d5cd2",
+            "behavior": {
+              "sessionDuration": 246824,
+              "scrollDepth": 82,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.801Z",
+            "ip": "54.215.82.41",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X; Creative) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1 AuraCreative/1.0",
+            "sessionId": "186164d2-0d6e-4df2-9eb2-d174ff962092",
+            "behavior": {
+              "sessionDuration": 223392,
+              "scrollDepth": 49,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Europe",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:38.902Z",
+            "ip": "13.107.122.62",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "776eb371-ed32-4c1f-b50c-ec0b903e24ea",
+            "behavior": {
+              "sessionDuration": 221578,
+              "scrollDepth": 76,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.003Z",
+            "ip": "104.235.182.69",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "29c1dbeb-3a77-4c4a-b4fd-11916b9e7d50",
+            "behavior": {
+              "sessionDuration": 59800,
+              "scrollDepth": 35,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Oceania",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.103Z",
+            "ip": "198.32.8.151",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "854a89e5-e488-48e1-b968-597cef002ff0",
+            "behavior": {
+              "sessionDuration": 293031,
+              "scrollDepth": 67,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "en-US"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.204Z",
+            "ip": "52.76.57.213",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+            "sessionId": "fce76bd5-9171-4ebb-9581-4c3eb20d8ada",
+            "behavior": {
+              "sessionDuration": 213125,
+              "scrollDepth": 44,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.305Z",
+            "ip": "199.232.84.204",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; SM-G996B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "0452e527-2472-4e01-8c21-a3c32aeda593",
+            "behavior": {
+              "sessionDuration": 28144,
+              "scrollDepth": 95,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "South America",
+              "language": "es-ES"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.405Z",
+            "ip": "50.16.30.48",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "4c3af7f3-1713-40a4-88ce-e22bc745652d",
+            "behavior": {
+              "sessionDuration": 218556,
+              "scrollDepth": 98,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "South America",
+              "language": "zh-CN"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.506Z",
+            "ip": "20.96.107.179",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; PrivacyMode) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraStealth/1.0",
+            "sessionId": "1a3f9a71-8408-4659-988b-921f67715aaf",
+            "behavior": {
+              "sessionDuration": 8983,
+              "scrollDepth": 54,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "CET",
+              "region": "Asia",
+              "language": "de-DE"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.607Z",
+            "ip": "54.187.19.28",
+            "userAgent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0; Chromebook) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraChrome/1.0",
+            "sessionId": "fa5f98a5-8e2d-443c-872f-2194a00fc733",
+            "behavior": {
+              "sessionDuration": 209198,
+              "scrollDepth": 92,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.708Z",
+            "ip": "35.237.93.23",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.0.15",
+            "sessionId": "d4dcf75d-a0ea-4abe-bef6-6fbb698fe3ee",
+            "behavior": {
+              "sessionDuration": 274793,
+              "scrollDepth": 97,
+              "clickEvents": 0,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Oceania",
+              "language": "en-GB"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.809Z",
+            "ip": "54.169.97.230",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "437d4788-ef52-4de7-bf54-4a8431634434",
+            "behavior": {
+              "sessionDuration": 112394,
+              "scrollDepth": 29,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "Asia",
+              "language": "en-GB"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:39.910Z",
+            "ip": "52.76.131.134",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+            "sessionId": "5354c6b1-686e-44fd-8886-9ac42a223474",
+            "behavior": {
+              "sessionDuration": 79368,
+              "scrollDepth": 49,
+              "clickEvents": 1,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Asia",
+              "language": "en-GB"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.010Z",
+            "ip": "50.17.1.148",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "sessionId": "a6c8986e-cd1f-4d71-88da-719b0e24c334",
+            "behavior": {
+              "sessionDuration": 228681,
+              "scrollDepth": 38,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.111Z",
+            "ip": "8.8.8.184",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "4ff9a29b-bedf-405c-80d3-7a1bf1de5805",
+            "behavior": {
+              "sessionDuration": 265105,
+              "scrollDepth": 78,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Asia",
+              "language": "fr-FR"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.212Z",
+            "ip": "31.13.109.133",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; Education) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15 AuraEdu/1.0",
+            "sessionId": "4e86db1d-4b97-4f8d-a485-cf2bcebc1e96",
+            "behavior": {
+              "sessionDuration": 139052,
+              "scrollDepth": 92,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Europe",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.313Z",
+            "ip": "129.134.142.58",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; AntiFingerprint) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15 AuraPrivacy/1.0",
+            "sessionId": "ef4ebc52-1e36-481e-9449-3b58503e917d",
+            "behavior": {
+              "sessionDuration": 93340,
+              "scrollDepth": 95,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "North America",
+              "language": "es-ES"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.413Z",
+            "ip": "198.32.8.33",
+            "userAgent": "Mozilla/5.0 (Macintosh; Apple M3 Pro; Mac OS X 14_3; Blockchain) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraBlockchain/1.0",
+            "sessionId": "a70d3a68-62d7-4e40-abbd-44202b927f70",
+            "behavior": {
+              "sessionDuration": 21940,
+              "scrollDepth": 80,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "South America",
+              "language": "en-US"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.514Z",
+            "ip": "185.199.124.42",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "df2bd935-bde1-415e-b685-1e445c2341bf",
+            "behavior": {
+              "sessionDuration": 195005,
+              "scrollDepth": 62,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "JST",
+              "region": "Europe",
+              "language": "zh-CN"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.615Z",
+            "ip": "203.0.113.175",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+            "sessionId": "9fa47982-88b1-40ef-8ffb-79998abdcbfa",
+            "behavior": {
+              "sessionDuration": 169064,
+              "scrollDepth": 37,
+              "clickEvents": 0,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.716Z",
+            "ip": "149.112.112.232",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "4474eb85-318d-435e-ad39-42ee6f863a5d",
+            "behavior": {
+              "sessionDuration": 58393,
+              "scrollDepth": 34,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "AEST",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.yahoo.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.817Z",
+            "ip": "208.67.222.168",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; PrivacyMode) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraStealth/1.0",
+            "sessionId": "49f835ea-625f-47cb-a8c8-9a909565ed4e",
+            "behavior": {
+              "sessionDuration": 150616,
+              "scrollDepth": 53,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "de-DE"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:40.917Z",
+            "ip": "198.41.0.209",
+            "userAgent": "Mozilla/5.0 (Macintosh; Apple M3 Pro; Mac OS X 14_3; Blockchain) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraBlockchain/1.0",
+            "sessionId": "2b6996fb-a361-41ee-87cb-e17fffb6916c",
+            "behavior": {
+              "sessionDuration": 32016,
+              "scrollDepth": 55,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Oceania",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.018Z",
+            "ip": "157.240.253.200",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "sessionId": "251b0336-dc74-4bd5-998c-3dac75773960",
+            "behavior": {
+              "sessionDuration": 79244,
+              "scrollDepth": 87,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "Europe",
+              "language": "en-US"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.119Z",
+            "ip": "185.60.217.228",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "sessionId": "3d5162d0-16d4-4e7f-8f52-80c59fa3ab35",
+            "behavior": {
+              "sessionDuration": 82078,
+              "scrollDepth": 75,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "zh-CN"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.220Z",
+            "ip": "129.174.155.147",
+            "userAgent": "Mozilla/5.0 (X11; Linux x86_64; Neural) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraNeural/1.0 AI/3.0",
+            "sessionId": "b803537c-a6af-4b0a-bf98-b5ce7a52a458",
+            "behavior": {
+              "sessionDuration": 234117,
+              "scrollDepth": 51,
+              "clickEvents": 2,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "Oceania",
+              "language": "en-US"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.319Z",
+            "ip": "54.189.95.98",
+            "userAgent": "Mozilla/5.0 (SmartTV; Tizen 6.0; Samsung) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36 AuraSmartTV/1.0",
+            "sessionId": "4f81bd79-0ccd-4ad7-afc5-f5f389bbe06a",
+            "behavior": {
+              "sessionDuration": 232819,
+              "scrollDepth": 68,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "UTC",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "https://duckduckgo.com/",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.420Z",
+            "ip": "208.67.220.224",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "da722e59-a201-41c0-8ffc-2180c17f6871",
+            "behavior": {
+              "sessionDuration": 295084,
+              "scrollDepth": 68,
+              "clickEvents": 3,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "South America",
+              "language": "ja-JP"
+            },
+            "referrer": "https://www.bing.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.521Z",
+            "ip": "173.252.126.236",
+            "userAgent": "Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.3.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+            "sessionId": "5f53930c-965d-4d5f-888f-186f7d8b18be",
+            "behavior": {
+              "sessionDuration": 202427,
+              "scrollDepth": 38,
+              "clickEvents": 1,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "Asia",
+              "language": "de-DE"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.622Z",
+            "ip": "52.74.11.163",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; PrivacyMode) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 AuraStealth/1.0",
+            "sessionId": "516d31d2-da50-4353-9e44-77e0b7565440",
+            "behavior": {
+              "sessionDuration": 109271,
+              "scrollDepth": 49,
+              "clickEvents": 4,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "South America",
+              "language": "fr-FR"
+            },
+            "referrer": "email_campaign",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.723Z",
+            "ip": "40.247.76.176",
+            "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "3d0530e6-5404-4272-bc41-5b3b4c4af841",
+            "behavior": {
+              "sessionDuration": 7039,
+              "scrollDepth": 86,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "EST",
+              "region": "North America",
+              "language": "ja-JP"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.824Z",
+            "ip": "1.1.1.125",
+            "userAgent": "Mozilla/5.0 (Windows NT 11.0; Win64; x64; Gaming) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AuraGaming/1.0",
+            "sessionId": "f032b301-0bbe-4765-be4f-57ed2a598134",
+            "behavior": {
+              "sessionDuration": 141785,
+              "scrollDepth": 43,
+              "clickEvents": 4,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Asia",
+              "language": "en-US"
+            },
+            "referrer": "direct",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:41.924Z",
+            "ip": "13.107.255.243",
+            "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0",
+            "sessionId": "8bfc9412-9b60-40ba-bbf7-d9b2dbb224b5",
+            "behavior": {
+              "sessionDuration": 136977,
+              "scrollDepth": 48,
+              "clickEvents": 3,
+              "bounced": true,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "GMT",
+              "region": "Oceania",
+              "language": "zh-CN"
+            },
+            "referrer": "social_media",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          },
+          {
+            "timestamp": "2025-08-31T06:59:42.025Z",
+            "ip": "44.224.39.186",
+            "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36",
+            "sessionId": "07fd7c85-ea15-419f-b63d-a904f501c6a2",
+            "behavior": {
+              "sessionDuration": 76589,
+              "scrollDepth": 49,
+              "clickEvents": 2,
+              "bounced": false,
+              "timePattern": "night"
+            },
+            "geography": {
+              "timezone": "PST",
+              "region": "North America",
+              "language": "fr-FR"
+            },
+            "referrer": "https://www.google.com/search",
+            "generated": true,
+            "generationContext": {
+              "ip": "141.0.8.232",
+              "timestamp": 1756623577088,
+              "operationType": "ab_test",
+              "requestedCount": 50,
+              "sessionId": "91418c83-3770-4f08-a592-7383124fd641"
+            }
+          }
+        ],
+        "dailyStats": {},
+        "hourlyStats": {}
+      }
+    ]
+  ],
+  "urlToShortCode": [
+    [
+      "https://www.example.com/",
+      "KIqObm"
+    ]
+  ],
+  "performanceMetrics": {
+    "totalOperations": 0,
+    "avgResponseTime": 0,
+    "memoryUsage": 0,
+    "lastMetricsUpdate": 1756711973306
+  },
+  "version": "1.0"
+}
